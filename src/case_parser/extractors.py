@@ -99,4 +99,3 @@ def extract_monitoring(notes: Any) -> str:
         findings.append("CSF Drain")
 
     return "; ".join(dict.fromkeys(findings))
-

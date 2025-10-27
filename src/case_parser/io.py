@@ -116,4 +116,3 @@ class ExcelHandler:
         except Exception as e:
             logger.warning("Could not generate data summary: %s", e)
             return {"total_cases": len(df), "date_range": "Unavailable"}
-

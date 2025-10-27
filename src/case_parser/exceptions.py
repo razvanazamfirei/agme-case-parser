@@ -25,4 +25,3 @@ class ConfigurationError(CaseParserError):
     """Raised when configuration is invalid."""
 
     pass
-

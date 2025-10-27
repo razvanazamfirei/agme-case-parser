@@ -36,7 +36,7 @@ class CaseProcessor:
         """Parse date with fallback to default year."""
         if pd.isna(value):
             logger.warning(
-                f"Missing date value, using default year {self.default_year}"
+                "Missing date value, using default year %s", {self.default_year}
             )
             return pd.Timestamp(year=self.default_year, month=1, day=1)
 
@@ -52,7 +52,7 @@ class CaseProcessor:
 
         # Fallback to default
         logger.warning(
-            f"Could not parse date '{value}', using default year {self.default_year}"
+            "Could not parse date %s, using default year %s", value, self.default_year
         )
         return pd.Timestamp(year=self.default_year, month=1, day=1)
 
@@ -65,7 +65,7 @@ class CaseProcessor:
         try:
             age_float = float(age)
         except (ValueError, TypeError):
-            logger.warning(f"Invalid age value: {age}")
+            logger.warning("Invalid age value: %s", age)
             return ""
 
         # Find first range where age is below upper bound
@@ -178,7 +178,7 @@ class CaseProcessor:
 
     def process_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """Transform input dataframe to case log format."""
-        logger.info(f"Processing {len(df)} rows of data")
+        logger.info("Processing %s rows of data", {len(df)})
 
         # Validate required columns exist
         required_columns = [
@@ -203,4 +203,3 @@ class CaseProcessor:
 
         # Ensure column order
         return result_df[OUTPUT_COLUMNS]
-
