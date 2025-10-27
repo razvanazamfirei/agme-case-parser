@@ -1,0 +1,64 @@
+[tools]
+python = "3.13"
+
+[env]
+_.python.venv = { path = ".venv", create = true, uv_create_args = ["--system-site-packages", "--seed"] }
+
+[tasks.setup]
+description = "Install dependencies and set up the project"
+run = "uv sync"
+
+[tasks."setup:dev"]
+description = "Install dependencies including dev extras"
+run = "uv sync --extra dev"
+
+[tasks.install]
+description = "Install package in development mode"
+run = "uv pip install -e ."
+depends = ["setup"]
+
+[tasks.lint]
+description = "Check code with ruff"
+run = "ruff check ."
+
+[tasks."lint:fix"]
+description = "Fix auto-fixable linting issues"
+run = "ruff check --fix ."
+
+[tasks.format]
+description = "Format code with ruff"
+run = "ruff format ."
+
+[tasks."format:check"]
+description = "Check code formatting without modifying files"
+run = "ruff format --check ."
+
+[tasks.check]
+description = "Run all code quality checks"
+run = [
+    "ruff check .",
+    "ruff format --check ."
+]
+
+[tasks.fix]
+description = "Fix and format all code"
+run = [
+    "ruff check --fix .",
+    "ruff format ."
+]
+
+[tasks.run]
+description = "Run the case parser (usage: mise run -- input.xlsx output.xlsx)"
+run = "python main.py"
+
+[tasks.clean]
+description = "Clean up generated files and caches"
+run = """
+rm -rf .venv
+rm -rf .ruff_cache
+rm -rf dist
+rm -rf build
+rm -rf *.egg-info
+find . -type d -name __pycache__ -exec rm -rf {} +
+find . -type f -name '*.pyc' -delete
+"""
