@@ -154,7 +154,7 @@ class CaseProcessor:
                 "Case Date": date_str,
                 "Supervisor": ""
                 if pd.isna(row.get(self.column_map.anesthesiologist))
-                else str(clean_names(row.get(self.column_map.anesthesiologist))),
+                else str(clean_names(str(row.get(self.column_map.anesthesiologist)))),
                 "Age": self.determine_age_category(row.get(self.column_map.age)),
                 "Original Procedure": ""
                 if pd.isna(row.get(self.column_map.procedure))
@@ -203,3 +203,4 @@ class CaseProcessor:
 
         # Ensure column order
         return result_df[OUTPUT_COLUMNS]
+

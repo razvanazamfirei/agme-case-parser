@@ -32,6 +32,9 @@ target-version = "py313"
     "UP",
     "W",
   ]
+
+  [lint.per-file-ignores]
+    "tests/**" = ["S101", "PLR6301", "E501", "PLC1901", "PLC2701", "PLC0415", "RUF059", "PLR6201"]
 [format]
   indent-style              = "space"
   line-ending               = "auto"

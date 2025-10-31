@@ -33,3 +33,4 @@ def setup_logging(level: LogLevel = "INFO", verbose: bool = False) -> None:
     # Set specific logger levels
     logging.getLogger("openpyxl").setLevel(logging.WARNING)
     logging.getLogger("pandas").setLevel(logging.WARNING)
+

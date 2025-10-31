@@ -13,10 +13,13 @@ from pandas import DataFrame
 logger = logging.getLogger(__name__)
 
 
-def read_excel(
-    file_path: str | Path, sheet_name: str | int | None = None
-) -> dict[str, DataFrame]:
-    """Read Excel file and return DataFrame."""
+def read_excel(file_path: str | Path, sheet_name: str | int | None = 0) -> DataFrame:
+    """Read Excel file and return DataFrame.
+
+    Args:
+        file_path: Path to the Excel file
+        sheet_name: Sheet name or index to read (default: first sheet)
+    """
     file_path = Path(file_path)
 
     if not file_path.exists():
@@ -29,8 +32,8 @@ def read_excel(
 
     try:
         logger.info("Reading Excel file: %s", file_path)
-        df = pd.read_excel(file_path, sheet_name=sheet_name or 0)
-        logger.info(f"Successfully read {len(df)} rows from {file_path}")  # noqa: G004
+        df = pd.read_excel(file_path, sheet_name=sheet_name)
+        logger.info("Successfully read %s rows from %s", len(df), file_path)
         return df
     except Exception as e:
         logger.error("Error reading Excel file %s: %s", file_path, e)
@@ -116,3 +119,4 @@ class ExcelHandler:
         except Exception as e:
             logger.warning("Could not generate data summary: %s", e)
             return {"total_cases": len(df), "date_range": "Unavailable"}
+

@@ -1,0 +1,135 @@
+================================================================================
+VALIDATION REPORT
+================================================================================
+
+SUMMARY
+--------------------------------------------------------------------------------
+Total Cases: 102
+Cases with Warnings: 25 (24.5%)
+Low Confidence Cases: 92 (90.2%)
+Average Confidence: 0.529
+
+MISSING CRITICAL FIELDS
+--------------------------------------------------------------------------------
+  provider: 1 cases (1.0%)
+
+WARNING TYPES (Top 10)
+--------------------------------------------------------------------------------
+  [ 17] No procedure notes available for extraction
+  [  9] Added 'E' to ASA status based on emergent flag
+  [  1] Missing anesthesia type
+
+PROBLEMATIC CASES (92 cases)
+--------------------------------------------------------------------------------
+
+1. Case ID: 233246205
+   Confidence: 0.500
+   Warnings (1):
+     - No procedure notes available for extraction
+   Missing fields: None
+
+2. Case ID: 233301428
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+3. Case ID: 233384089
+   Confidence: 0.500
+   Warnings (1):
+     - No procedure notes available for extraction
+   Missing fields: None
+
+4. Case ID: 233413725
+   Confidence: 0.500
+   Warnings (1):
+     - No procedure notes available for extraction
+   Missing fields: None
+
+5. Case ID: 233472179
+   Confidence: 0.500
+   Warnings (1):
+     - No procedure notes available for extraction
+   Missing fields: None
+
+6. Case ID: 233556539
+   Confidence: 0.500
+   Warnings (1):
+     - Added 'E' to ASA status based on emergent flag
+   Missing fields: None
+
+7. Case ID: 233634743
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+8. Case ID: 233736246
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+9. Case ID: 233864152
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+10. Case ID: 233865104
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+11. Case ID: 233972955
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+12. Case ID: 233973706
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+13. Case ID: 233994780
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+14. Case ID: 234114182
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+15. Case ID: 234114476
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+16. Case ID: 234115876
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+17. Case ID: 234209952
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+18. Case ID: 234210158
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+19. Case ID: 234210315
+   Confidence: 0.500
+   Warnings (0):
+   Missing fields: None
+
+20. Case ID: 234290548
+   Confidence: 0.500
+   Warnings (1):
+     - No procedure notes available for extraction
+   Missing fields: None
+
+... and 72 more problematic cases
+
+================================================================================
+END OF REPORT
+================================================================================
