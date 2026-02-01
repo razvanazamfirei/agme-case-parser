@@ -58,6 +58,7 @@ const LARYNGOSCOPY_MAP = {
 const PROCEDURE_CAT_MAP = {
   "Cardiac with CPB": "156681",
   "Cardiac without CPB": "156682",
+  Cardiac: "156682", // Fallback when CPB status unknown
   "Procedures on major vessels (endovascular)": "156685",
   "Procedures on major vessels (open)": "156684",
   "Procedures Major Vessels": "156684",
@@ -67,8 +68,11 @@ const PROCEDURE_CAT_MAP = {
   Intracerebral: "156687",
   "Cesarean del": "156692",
   Cesarean: "156692",
+  "Vaginal del": "156690",
+  "Vaginal Delivery": "156690",
   "Intrathoracic non-cardiac": "156683",
   Intrathoracic: "156683",
+  "Other (procedure cat)": null, // Explicitly handled
 };
 
 // Vascular access codes (matching Python tool output)
@@ -84,6 +88,18 @@ const MONITORING_MAP = {
   TEE: "156707",
   Neuromonitoring: "156708",
   "CSF Drain": "1256341",
+};
+
+// Difficult Airway Management codes
+const DIFFICULT_AIRWAY_MAP = {
+  Anticipated: "148",
+  Unanticipated: "149",
+};
+
+// Life-Threatening Pathology codes
+const LIFE_THREATENING_PATHOLOGY_MAP = {
+  "Non-Trauma": "46",
+  Trauma: "134",
 };
 
 // Institution IDs
@@ -139,15 +155,27 @@ function setInputValue(inputId, value) {
 }
 
 function checkProcedure(codeId) {
-  const checkbox = document.getElementById(String(codeId));
-  if (!checkbox) {
-    console.warn("Checkbox not found:", codeId);
+  const input = document.getElementById(String(codeId));
+  if (!input) {
+    console.warn("Input element not found:", codeId);
     return false;
   }
-  if (!checkbox.checked) {
-    checkbox.click();
+  if (!input.checked) {
+    input.click();
   }
-  return checkbox.checked;
+  return input.checked;
+}
+
+function checkRadioProcedure(codeId) {
+  const radio = document.getElementById(`CaseTypes_${codeId}`);
+  if (!radio) {
+    console.warn("Radio button not found:", `CaseTypes_${codeId}`);
+    return false;
+  }
+  if (!radio.checked) {
+    radio.click();
+  }
+  return radio.checked;
 }
 
 function uncheckAllProcedures() {
@@ -266,12 +294,14 @@ function fillCase(caseData) {
       // Try fuzzy matches
       const matches = findAttendingId(caseData.attending, true);
       if (matches.length > 0) {
-        // Use first match but warn
+        // Use first match but warn if warnings enabled
         if (setSelectValue("Attendings", matches[0].value)) {
           result.filled.push("attending");
-          result.warnings.push(
-            `Attending "${caseData.attending}" not found exactly, used "${matches[0].text}"`,
-          );
+          if (caseData.showWarnings !== false) {
+            result.warnings.push(
+              `Attending "${caseData.attending}" not found exactly, used "${matches[0].text}"`,
+            );
+          }
           attendingSet = true;
         }
       }
@@ -284,9 +314,11 @@ function fillCase(caseData) {
     if (attId) {
       if (setSelectValue("Attendings", attId)) {
         result.filled.push("attending");
-        result.warnings.push(
-          `Used default attending: ${caseData.defaultAttending}`,
-        );
+        if (caseData.showWarnings !== false) {
+          result.warnings.push(
+            `Used default attending: ${caseData.defaultAttending}`,
+          );
+        }
         attendingSet = true;
       }
     }
@@ -298,14 +330,18 @@ function fillCase(caseData) {
     if (facultyId) {
       if (setSelectValue("Attendings", facultyId)) {
         result.filled.push("attending");
-        result.warnings.push(
-          `Attending "${caseData.attending || "(none)"}" not found, used FACULTY, FACULTY`,
-        );
+        if (caseData.showWarnings !== false) {
+          result.warnings.push(
+            `Attending "${caseData.attending || "(none)"}" not found, used FACULTY, FACULTY`,
+          );
+        }
       }
     } else {
-      result.warnings.push(
-        `Could not set attending - no matching option found`,
-      );
+      if (caseData.showWarnings !== false) {
+        result.warnings.push(
+          `Could not set attending - no matching option found`,
+        );
+      }
     }
   }
 
@@ -480,6 +516,51 @@ function fillCase(caseData) {
         }
       }
     });
+  }
+
+  // Set Difficult Airway Management
+  if (caseData.difficultAirway) {
+    const code = DIFFICULT_AIRWAY_MAP[caseData.difficultAirway];
+    if (code) {
+      console.log(
+        "Checking Difficult Airway:",
+        caseData.difficultAirway,
+        "-> code",
+        code,
+      );
+      if (checkRadioProcedure(code)) {
+        result.filled.push(`difficultAirway:${caseData.difficultAirway}`);
+      }
+    }
+  }
+
+  // Set Life-Threatening Pathology
+  // Auto-check Non-Trauma for 5E cases if setting enabled
+  const is5E = caseData.asa && caseData.asa.toString().toUpperCase() === "5E";
+  let pathologyToCheck = caseData.lifeThreateningPathology;
+
+  if (caseData.auto5EPathology !== false && is5E && !pathologyToCheck) {
+    pathologyToCheck = "Non-Trauma";
+    if (caseData.showWarnings !== false) {
+      result.warnings.push(
+        "Automatically checked Non-Trauma Life-Threatening Pathology for 5E case",
+      );
+    }
+  }
+
+  if (pathologyToCheck) {
+    const code = LIFE_THREATENING_PATHOLOGY_MAP[pathologyToCheck];
+    if (code) {
+      console.log(
+        "Checking Life-Threatening Pathology:",
+        pathologyToCheck,
+        "-> code",
+        code,
+      );
+      if (checkRadioProcedure(code)) {
+        result.filled.push(`lifeThreateningPathology:${pathologyToCheck}`);
+      }
+    }
   }
 
   console.log("Case fill complete:", result);

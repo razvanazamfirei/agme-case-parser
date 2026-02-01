@@ -1,0 +1,6 @@
+# Build output
+dist/
+
+# Development
+node_modules/
+.DS_Store

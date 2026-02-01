@@ -30,7 +30,8 @@
     "rules": {
       "recommended": true,
       "style": { "useConst": "warn" },
-      "suspicious": { "noExplicitAny": "off" }
+      "suspicious": { "noExplicitAny": "off" },
+      "correctness": { "noUnusedVariables": "off" }
     }
   },
   "javascript": {
