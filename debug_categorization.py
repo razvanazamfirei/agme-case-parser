@@ -19,12 +19,7 @@ import sys
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
 
-from src.case_parser.patterns.approach_patterns import (
-    detect_approach,
-    detect_intracerebral_pathology,
-)
 from src.case_parser.patterns.categorization import (
     categorize_cardiac,
     categorize_intracerebral,
@@ -81,7 +76,9 @@ def debug_categorization(procedure: str, services_input: str) -> None:
         service_upper = service.upper()
 
         # Create table for this service
-        table = Table(title=f"Service: {service}", show_header=True, header_style="bold magenta")
+        table = Table(
+            title=f"Service: {service}", show_header=True, header_style="bold magenta"
+        )
         table.add_column("Rule #", style="dim", width=8)
         table.add_column("Category", style="cyan")
         table.add_column("Match Details", style="green")
@@ -116,7 +113,9 @@ def debug_categorization(procedure: str, services_input: str) -> None:
                     if excl_in_service or excl_in_procedure:
                         excl_details = []
                         if excl_in_service:
-                            excl_details.append(f"Service: {', '.join(excl_in_service)}")
+                            excl_details.append(
+                                f"Service: {', '.join(excl_in_service)}"
+                            )
                         if excl_in_procedure:
                             excl_details.append(
                                 f"Procedure: {', '.join(excl_in_procedure)}"
@@ -190,7 +189,8 @@ def debug_categorization(procedure: str, services_input: str) -> None:
     ):
         console.print()
         console.print(
-            "[dim italic]Note: Labor epidural fallback applied (no OB/GYN service)[/dim italic]"
+            "[dim italic]Note: Labor epidural fallback applied (no OB/GYN service)"
+            "[/dim italic]"
         )
 
     console.print()
@@ -210,7 +210,9 @@ def interactive_mode() -> None:
     while True:
         console.print("[dim]" + "─" * 80 + "[/dim]")
         try:
-            procedure = console.input("[bold]Enter procedure description:[/bold] ").strip()
+            procedure = console.input(
+                "[bold]Enter procedure description:[/bold] "
+            ).strip()
             if procedure.lower() in {"quit", "exit", "q"}:
                 break
 
