@@ -2,7 +2,7 @@
  * Constants and configuration
  */
 
-const DOM = {
+const _DOM = {
   // Sections
   uploadSection: "uploadSection",
   navSection: "navSection",
@@ -63,7 +63,7 @@ const DOM = {
   confirmationSummary: "confirmationSummary",
 };
 
-const EXPECTED_COLUMNS = [
+const _EXPECTED_COLUMNS = [
   "Case ID",
   "Case Date",
   "Supervisor",
@@ -77,17 +77,17 @@ const EXPECTED_COLUMNS = [
   "Specialized Monitoring Techniques",
 ];
 
-const STORAGE_KEYS = {
+const _STORAGE_KEYS = {
   cases: "acgme_cases",
   currentIndex: "acgme_currentIndex",
   caseStatuses: "acgme_caseStatuses",
   settings: "acgme_settings",
 };
 
-const STATUS_TYPES = {
+const _STATUS_TYPES = {
   pending: "pending",
   submitted: "submitted",
   skipped: "skipped",
 };
 
-const ACGME_URL_PATTERN = "apps.acgme.org/ads/CaseLogs/CaseEntry";
+const _ACGME_URL_PATTERN = "apps.acgme.org/ads/CaseLogs/CaseEntry";

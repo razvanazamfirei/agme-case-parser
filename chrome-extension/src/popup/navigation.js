@@ -2,7 +2,7 @@
  * Case navigation logic
  */
 
-const Navigation = {
+const _Navigation = {
   goToCase(index) {
     if (index < 0 || index >= State.cases.length) {
       return;

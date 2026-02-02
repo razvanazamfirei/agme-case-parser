@@ -12,20 +12,36 @@
       <header class="bg-white border-b px-6 py-4">
         <div class="flex items-center justify-between">
           <div>
-            <h1 class="text-xl font-semibold text-gray-900">ACGME Case Submitter</h1>
-            <p class="text-sm text-gray-500 mt-0.5">Upload Excel and cycle through cases</p>
+            <h1 class="text-xl font-semibold text-gray-900">
+              ACGME Case Submitter
+            </h1>
+            <p class="text-sm text-gray-500 mt-0.5">
+              Upload Excel and cycle through cases
+            </p>
           </div>
           <button id="settingsToggle" class="btn-icon" title="Settings">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+            >
               <circle cx="12" cy="12" r="3"></circle>
-              <path d="M12 1v4m0 14v4m-9-9h4m14 0h4m-2.6-6.4-2.8 2.8m-10.4 4.8-2.8 2.8m0-10.4 2.8 2.8m10.4 4.8 2.8 2.8"></path>
+              <path
+                d="M12 1v4m0 14v4m-9-9h4m14 0h4m-2.6-6.4-2.8 2.8m-10.4 4.8-2.8 2.8m0-10.4 2.8 2.8m10.4 4.8 2.8 2.8"
+              ></path>
             </svg>
           </button>
         </div>
       </header>
 
       <!-- Settings Section -->
-      <div id="settingsSection" class="hidden bg-gray-50 border-b px-6 py-4 space-y-4">
+      <div
+        id="settingsSection"
+        class="hidden bg-gray-50 border-b px-6 py-4 space-y-4"
+      >
         <h2 class="text-lg font-semibold text-gray-900">Settings</h2>
 
         <div class="form-field">
@@ -41,39 +57,77 @@
 
         <div class="form-field">
           <label for="settingDefaultAttending">Default Attending</label>
-          <input type="text" id="settingDefaultAttending" placeholder="LASTNAME, FIRSTNAME" />
+          <input
+            type="text"
+            id="settingDefaultAttending"
+            placeholder="LASTNAME, FIRSTNAME"
+          />
         </div>
 
         <div class="form-field">
-          <label for="settingSubmitDelay">Auto-submit delay: <span id="submitDelayValue" class="font-medium">0.5s</span></label>
-          <input type="range" id="settingSubmitDelay" min="0" max="2" step="0.5" value="0.5" />
+          <label for="settingSubmitDelay">
+            Auto-submit delay:
+            <span id="submitDelayValue" class="font-medium">0.5s</span>
+          </label>
+          <input
+            type="range"
+            id="settingSubmitDelay"
+            min="0"
+            max="2"
+            step="0.5"
+            value="0.5"
+          />
         </div>
 
         <div class="space-y-2">
           <label class="checkbox-label">
-            <input type="checkbox" id="settingCardiacAutoFill" checked class="rounded" />
+            <input
+              type="checkbox"
+              id="settingCardiacAutoFill"
+              checked
+              class="rounded"
+            />
             <span>Auto-fill cardiac case extras</span>
           </label>
 
           <label class="checkbox-label">
-            <input type="checkbox" id="settingAuto5EPathology" checked class="rounded" />
+            <input
+              type="checkbox"
+              id="settingAuto5EPathology"
+              checked
+              class="rounded"
+            />
             <span>Auto-check Non-Trauma for 5E cases</span>
           </label>
 
           <label class="checkbox-label">
-            <input type="checkbox" id="settingConfirmBeforeSubmit" checked class="rounded" />
+            <input
+              type="checkbox"
+              id="settingConfirmBeforeSubmit"
+              checked
+              class="rounded"
+            />
             <span>Show confirmation before submit</span>
           </label>
 
           <label class="checkbox-label">
-            <input type="checkbox" id="settingShowWarnings" checked class="rounded" />
+            <input
+              type="checkbox"
+              id="settingShowWarnings"
+              checked
+              class="rounded"
+            />
             <span>Show warnings</span>
           </label>
         </div>
 
         <div class="flex gap-2 pt-2">
-          <button id="clearSessionBtn" class="btn btn-skip flex-1">Clear Session</button>
-          <button id="saveSettingsBtn" class="btn btn-primary flex-1">Save Settings</button>
+          <button id="clearSessionBtn" class="btn btn-skip flex-1">
+            Clear Session
+          </button>
+          <button id="saveSettingsBtn" class="btn btn-primary flex-1">
+            Save Settings
+          </button>
         </div>
       </div>
 
@@ -82,17 +136,38 @@
         <!-- Upload Section -->
         <div id="uploadSection" class="px-6 py-8">
           <div class="text-center space-y-4">
-            <div class="mx-auto w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center">
-              <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            <div
+              class="mx-auto w-16 h-16 bg-primary-100 rounded-full flex items-center justify-center"
+            >
+              <svg
+                class="w-8 h-8 text-primary-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
               </svg>
             </div>
             <div>
               <h3 class="text-lg font-medium text-gray-900">Load Cases</h3>
-              <p class="text-sm text-gray-500 mt-1">Upload an Excel file to get started</p>
+              <p class="text-sm text-gray-500 mt-1">
+                Upload an Excel file to get started
+              </p>
             </div>
-            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" class="hidden" />
-            <button id="uploadBtn" class="btn btn-primary">Choose Excel File</button>
+            <input
+              type="file"
+              id="fileInput"
+              accept=".xlsx,.xls,.csv"
+              class="hidden"
+            />
+            <button id="uploadBtn" class="btn btn-primary">
+              Choose Excel File
+            </button>
             <div id="fileName" class="text-sm text-gray-600 mt-2"></div>
           </div>
         </div>
@@ -102,25 +177,40 @@
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-medium text-gray-700">Cases</h3>
             <div class="flex gap-4 text-xs">
-              <span class="stat pending"><span id="pendingCount">0</span> pending</span>
-              <span class="stat submitted"><span id="submittedCount">0</span> submitted</span>
-              <span class="stat skipped"><span id="skippedCount">0</span> skipped</span>
+              <span class="stat pending"
+                ><span id="pendingCount">0</span> pending</span
+              >
+              <span class="stat submitted"
+                ><span id="submittedCount">0</span> submitted</span
+              >
+              <span class="stat skipped"
+                ><span id="skippedCount">0</span> skipped</span
+              >
             </div>
           </div>
 
           <div class="flex items-center gap-3">
-            <button id="prevBtn" class="btn btn-nav px-3 py-1.5 text-sm">Previous</button>
+            <button id="prevBtn" class="btn btn-nav px-3 py-1.5 text-sm">
+              Previous
+            </button>
             <div class="flex-1 text-center text-sm font-medium text-gray-700">
               <span id="currentIndex">0</span> / <span id="totalCount">0</span>
             </div>
-            <button id="nextBtn" class="btn btn-nav px-3 py-1.5 text-sm">Next</button>
+            <button id="nextBtn" class="btn btn-nav px-3 py-1.5 text-sm">
+              Next
+            </button>
           </div>
 
           <div class="flex items-center gap-3 mt-3">
             <label for="caseJump" class="text-sm text-gray-600">Jump to:</label>
             <select id="caseJump" class="flex-1 text-sm"></select>
             <label class="checkbox-label text-xs">
-              <input type="checkbox" id="filterPending" checked class="rounded" />
+              <input
+                type="checkbox"
+                id="filterPending"
+                checked
+                class="rounded"
+              />
               <span>Pending only</span>
             </label>
           </div>
@@ -153,7 +243,7 @@
               <label for="ageCategory">Age</label>
               <select id="ageCategory">
                 <option value="">Select</option>
-                <option value="a">a. < 3 mo</option>
+                <option value="a">a. &lt; 3 mo</option>
                 <option value="b">b. 3mo - 3yr</option>
                 <option value="c">c. 3 - 12yr</option>
                 <option value="d">d. 12 - 65yr</option>
@@ -200,11 +290,21 @@
                 <option value="Intrathoracic non-cardiac">Intrathoracic</option>
                 <option value="Cardiac with CPB">Cardiac with CPB</option>
                 <option value="Cardiac without CPB">Cardiac without CPB</option>
-                <option value="Procedures on major vessels (open)">Major Vessels (open)</option>
-                <option value="Procedures on major vessels (endovascular)">Major Vessels (endo)</option>
-                <option value="Intracerebral Vascular (open)">Intracerebral Vascular</option>
-                <option value="Intracerebral Nonvascular (open)">Intracerebral Nonvasc</option>
-                <option value="Intracerebral (endovascular)">Intracerebral (endo)</option>
+                <option value="Procedures on major vessels (open)">
+                  Major Vessels (open)
+                </option>
+                <option value="Procedures on major vessels (endovascular)">
+                  Major Vessels (endo)
+                </option>
+                <option value="Intracerebral Vascular (open)">
+                  Intracerebral Vascular
+                </option>
+                <option value="Intracerebral Nonvascular (open)">
+                  Intracerebral Nonvasc
+                </option>
+                <option value="Intracerebral (endovascular)">
+                  Intracerebral (endo)
+                </option>
                 <option value="Cesarean del">Cesarean</option>
                 <option value="Vaginal Delivery">Vaginal Delivery</option>
               </select>
@@ -214,14 +314,78 @@
           <div class="form-field">
             <label>Airway Management</label>
             <div class="flex flex-wrap gap-3 mt-1">
-              <label class="checkbox-label"><input type="checkbox" name="airway" value="ETT" class="rounded" /><span>ETT</span></label>
-              <label class="checkbox-label"><input type="checkbox" name="airway" value="Nasal ETT" class="rounded" /><span>Nasal ETT</span></label>
-              <label class="checkbox-label"><input type="checkbox" name="airway" value="LMA" class="rounded" /><span>LMA</span></label>
-              <label class="checkbox-label"><input type="checkbox" name="airway" value="Mask" class="rounded" /><span>Mask</span></label>
-              <label class="checkbox-label"><input type="checkbox" name="airway" value="DLT" class="rounded" /><span>DLT</span></label>
-              <label class="checkbox-label"><input type="checkbox" name="airway" value="Direct Laryngoscope" class="rounded" /><span>Direct</span></label>
-              <label class="checkbox-label"><input type="checkbox" name="airway" value="Video Laryngoscope" class="rounded" /><span>Video</span></label>
-              <label class="checkbox-label"><input type="checkbox" name="airway" value="Flexible Bronchoscopic" class="rounded" /><span>FOB</span></label>
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="airway"
+                  value="ETT"
+                  class="rounded"
+                />
+                <span>ETT</span>
+              </label>
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="airway"
+                  value="Nasal ETT"
+                  class="rounded"
+                />
+                <span>Nasal ETT</span>
+              </label>
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="airway"
+                  value="LMA"
+                  class="rounded"
+                />
+                <span>LMA</span>
+              </label>
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="airway"
+                  value="Mask"
+                  class="rounded"
+                />
+                <span>Mask</span>
+              </label>
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="airway"
+                  value="DLT"
+                  class="rounded"
+                />
+                <span>DLT</span>
+              </label>
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="airway"
+                  value="Direct Laryngoscope"
+                  class="rounded"
+                />
+                <span>Direct</span>
+              </label>
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="airway"
+                  value="Video Laryngoscope"
+                  class="rounded"
+                />
+                <span>Video</span>
+              </label>
+              <label class="checkbox-label">
+                <input
+                  type="checkbox"
+                  name="airway"
+                  value="Flexible Bronchoscopic"
+                  class="rounded"
+                />
+                <span>FOB</span>
+              </label>
             </div>
           </div>
 
@@ -229,18 +393,74 @@
             <div class="form-field">
               <label>Vascular Access</label>
               <div class="space-y-1.5 mt-1">
-                <label class="checkbox-label"><input type="checkbox" name="vascular" value="Arterial Catheter" class="rounded" /><span>Arterial</span></label>
-                <label class="checkbox-label"><input type="checkbox" name="vascular" value="Central Venous Catheter" class="rounded" /><span>Central</span></label>
-                <label class="checkbox-label"><input type="checkbox" name="vascular" value="PA Catheter" class="rounded" /><span>PA Cath</span></label>
-                <label class="checkbox-label"><input type="checkbox" name="vascular" value="Ultrasound Guided" class="rounded" /><span>US Guided</span></label>
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="vascular"
+                    value="Arterial Catheter"
+                    class="rounded"
+                  />
+                  <span>Arterial</span>
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="vascular"
+                    value="Central Venous Catheter"
+                    class="rounded"
+                  />
+                  <span>Central</span>
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="vascular"
+                    value="PA Catheter"
+                    class="rounded"
+                  />
+                  <span>PA Cath</span>
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="vascular"
+                    value="Ultrasound Guided"
+                    class="rounded"
+                  />
+                  <span>US Guided</span>
+                </label>
               </div>
             </div>
             <div class="form-field">
               <label>Monitoring</label>
               <div class="space-y-1.5 mt-1">
-                <label class="checkbox-label"><input type="checkbox" name="monitoring" value="TEE" class="rounded" /><span>TEE</span></label>
-                <label class="checkbox-label"><input type="checkbox" name="monitoring" value="Neuromonitoring" class="rounded" /><span>Neuro</span></label>
-                <label class="checkbox-label"><input type="checkbox" name="monitoring" value="CSF Drain" class="rounded" /><span>CSF Drain</span></label>
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="monitoring"
+                    value="TEE"
+                    class="rounded"
+                  />
+                  <span>TEE</span>
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="monitoring"
+                    value="Neuromonitoring"
+                    class="rounded"
+                  />
+                  <span>Neuro</span>
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="checkbox"
+                    name="monitoring"
+                    value="CSF Drain"
+                    class="rounded"
+                  />
+                  <span>CSF Drain</span>
+                </label>
               </div>
             </div>
           </div>
@@ -249,17 +469,67 @@
             <div class="form-field">
               <label>Difficult Airway</label>
               <div class="space-y-1.5 mt-1">
-                <label class="checkbox-label"><input type="radio" name="difficultAirway" value="Anticipated" class="rounded-full" /><span>Anticipated</span></label>
-                <label class="checkbox-label"><input type="radio" name="difficultAirway" value="Unanticipated" class="rounded-full" /><span>Unanticipated</span></label>
-                <label class="checkbox-label"><input type="radio" name="difficultAirway" value="" checked class="rounded-full" /><span>None</span></label>
+                <label class="checkbox-label">
+                  <input
+                    type="radio"
+                    name="difficultAirway"
+                    value="Anticipated"
+                    class="rounded-full"
+                  />
+                  <span>Anticipated</span>
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="radio"
+                    name="difficultAirway"
+                    value="Unanticipated"
+                    class="rounded-full"
+                  />
+                  <span>Unanticipated</span>
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="radio"
+                    name="difficultAirway"
+                    value=""
+                    checked
+                    class="rounded-full"
+                  />
+                  <span>None</span>
+                </label>
               </div>
             </div>
             <div class="form-field">
               <label>Life-Threatening Pathology</label>
               <div class="space-y-1.5 mt-1">
-                <label class="checkbox-label"><input type="radio" name="lifeThreateningPathology" value="Non-Trauma" class="rounded-full" /><span>Non-Trauma</span></label>
-                <label class="checkbox-label"><input type="radio" name="lifeThreateningPathology" value="Trauma" class="rounded-full" /><span>Trauma</span></label>
-                <label class="checkbox-label"><input type="radio" name="lifeThreateningPathology" value="" checked class="rounded-full" /><span>None</span></label>
+                <label class="checkbox-label">
+                  <input
+                    type="radio"
+                    name="lifeThreateningPathology"
+                    value="Non-Trauma"
+                    class="rounded-full"
+                  />
+                  <span>Non-Trauma</span>
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="radio"
+                    name="lifeThreateningPathology"
+                    value="Trauma"
+                    class="rounded-full"
+                  />
+                  <span>Trauma</span>
+                </label>
+                <label class="checkbox-label">
+                  <input
+                    type="radio"
+                    name="lifeThreateningPathology"
+                    value=""
+                    checked
+                    class="rounded-full"
+                  />
+                  <span>None</span>
+                </label>
               </div>
             </div>
           </div>
@@ -271,17 +541,28 @@
 
           <div class="flex gap-2 pt-2">
             <button id="skipBtn" class="btn btn-skip flex-1">Skip</button>
-            <button id="fillBtn" class="btn btn-secondary flex-1">Fill Form</button>
-            <button id="fillSubmitBtn" class="btn btn-primary flex-1">Fill & Submit</button>
+            <button id="fillBtn" class="btn btn-secondary flex-1">
+              Fill Form
+            </button>
+            <button id="fillSubmitBtn" class="btn btn-primary flex-1">
+              Fill & Submit
+            </button>
           </div>
 
           <!-- Confirmation Panel -->
-          <div id="confirmationPanel" class="hidden bg-gray-50 border rounded-lg p-4 space-y-3">
+          <div
+            id="confirmationPanel"
+            class="hidden bg-gray-50 border rounded-lg p-4 space-y-3"
+          >
             <h4 class="font-medium text-gray-900">Confirm Submission</h4>
             <div id="confirmationSummary" class="text-sm space-y-1"></div>
             <div class="flex gap-2">
-              <button id="cancelSubmitBtn" class="btn btn-nav flex-1">Cancel</button>
-              <button id="confirmSubmitBtn" class="btn btn-primary flex-1">Submit Now</button>
+              <button id="cancelSubmitBtn" class="btn btn-nav flex-1">
+                Cancel
+              </button>
+              <button id="confirmSubmitBtn" class="btn btn-primary flex-1">
+                Submit Now
+              </button>
             </div>
           </div>
         </div>
@@ -292,7 +573,6 @@
         <div id="statusMessage" class="text-sm"></div>
       </div>
 
-      <!-- Footer -->
       <footer class="border-t px-6 py-2 bg-gray-50">
         <p class="text-xs text-gray-500 text-center">v1.1 - Modular Build</p>
       </footer>

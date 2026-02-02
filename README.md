@@ -121,6 +121,7 @@ python debug_categorization.py --interactive
 ```
 
 The debug script displays:
+
 - Rule matching trace with formatted tables
 - Pattern matches and exclusions
 - Final category with color-coded results

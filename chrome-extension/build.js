@@ -5,9 +5,9 @@
  * Bundles popup modules and copies static files
  */
 
-import { copyFileSync, existsSync, mkdirSync, rmSync } from "fs";
-import { dirname, join } from "path";
-import { fileURLToPath } from "url";
+import { copyFileSync, existsSync, mkdirSync, rmSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -50,7 +50,7 @@ async function build() {
   console.log("[OK] Bundled popup modules");
 
   // Build CSS with Tailwind
-  const cssResult = await Bun.build({
+  const _cssResult = await Bun.build({
     entrypoints: ["src/popup.css"],
     outdir: distDir,
     naming: "popup.css",

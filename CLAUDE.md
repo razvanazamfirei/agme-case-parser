@@ -112,6 +112,7 @@ patterns/
 ```
 
 Each pattern module is self-contained with:
+
 - Pattern definitions (regex lists)
 - Extraction/categorization functions
 - Documentation and examples
@@ -127,6 +128,7 @@ The enhanced processor uses typed domain models (`domain.py`):
 - **ExtractionFinding**: Tracks extraction confidence and sources
 
 This provides:
+
 - Type safety and IDE autocomplete
 - Runtime validation with clear warnings
 - Structured extraction metadata
@@ -135,6 +137,7 @@ This provides:
 ### Key Design Patterns
 
 **Pattern-Based Extraction**: All extraction logic follows a consistent pattern:
+
 - Pattern lists define what to match (e.g., `INTUBATION_PATTERNS`)
 - Extraction functions use shared utilities (`extract_with_context`, `calculate_pattern_confidence`)
 - Return typed enums + extraction findings with confidence scores
@@ -149,6 +152,7 @@ come before general ones.
 
 **Modern Output Formatting**: All CLI and validation output uses the `rich`
 library for:
+
 - Color-coded messages (cyan/yellow/red)
 - Bordered panels for sections
 - Formatted tables for data
@@ -161,6 +165,7 @@ stop processing.
 ### Important Business Logic
 
 **Procedure Categorization** (`patterns/categorization.py`):
+
 - Main entry point: `categorize_procedure(procedure, services)`
 - Service matching against `PROCEDURE_RULES` (first match wins)
 - Specialized categorization for:
@@ -177,6 +182,7 @@ for ACGME residency requirement tracking.
 emergency but ASA value lacks "E", automatically appends "E" to ASA status.
 
 **Airway Extraction** (`patterns/airway_patterns.py`):
+
 - Detects intubation, laryngoscopy types, supraglottic airways
 - Returns confidence scores (base 0.5, +0.1 for supporting patterns, -0.3 for negations)
 - Multiple extraction findings tracked per case
@@ -226,6 +232,7 @@ auto-filling ACGME case entry forms:
 - **xlsx.min.js**: Client-side Excel parsing (SheetJS)
 
 **Integration flow**:
+
 1. Python tool exports cases to JSON
 2. User loads JSON in Chrome extension
 3. Extension parses JSON and displays case list
@@ -245,17 +252,20 @@ compatibility.
 
 **pyproject.toml**: Build configuration using hatchling backend. Package in
 `src/case_parser/` following src-layout. Dependencies include:
+
 - pandas, openpyxl for Excel I/O
 - pydantic for domain model validation
 - rich for modern terminal output
-Entry point: `case_parser.cli:main`
+  Entry point: `case_parser.cli:main`
 
 **biome.json**: JavaScript/CSS linting for Chrome extension. Configured for:
+
 - 2-space indents, 80-char line width
 - Double quotes, semicolons, trailing commas
 - Excludes `xlsx.min.js` from linting
 
 **package.json**: JavaScript tooling. Scripts:
+
 - `bun run lint` - Lint extension code
 - `bun run format` - Format extension code
 - `bun run check` - Lint + format check
@@ -263,6 +273,7 @@ Entry point: `case_parser.cli:main`
 ## Debugging and Development
 
 **Debug categorization**:
+
 ```bash
 # Test a specific categorization
 python debug_categorization.py "TAVR" "CARDSURG"
@@ -272,18 +283,21 @@ python debug_categorization.py --interactive
 ```
 
 The debug script uses rich formatting to display:
+
 - Rule matching trace with tables
 - Matched patterns and exclusions
 - Final category with confidence
 - Warnings and special cases
 
 **Pattern development**:
+
 1. Edit pattern files in `src/case_parser/patterns/`
 2. Test with debug script or sample data
 3. Run `ruff format` and `ruff check`
 4. Verify with validation report
 
 **Extension development**:
+
 1. Edit extension files in `chrome-extension/`
 2. Run `bun run check` to lint and format
 3. Load unpacked extension in Chrome
@@ -318,23 +332,27 @@ bun run check
 ## Common Modifications
 
 **Add a new extraction pattern**:
+
 1. Edit appropriate pattern file (e.g., `patterns/airway_patterns.py`)
 2. Add pattern to relevant pattern list
 3. Update extraction function if needed
 4. Test with debug script
 
 **Add a new procedure category**:
+
 1. Add category to `domain.py` ProcedureCategory enum
 2. Add rule to `patterns/procedure_patterns.py` PROCEDURE_RULES
 3. Add mapping in `chrome-extension/content.js` if needed
 4. Test categorization with debug script
 
 **Modify categorization logic**:
+
 1. Edit `patterns/categorization.py` (NOT processors)
 2. Modify specific categorization function (e.g., `categorize_cardiac()`)
 3. Test with debug script and sample data
 
 **Add ACGME form field mapping**:
+
 1. Edit `chrome-extension/content.js`
 2. Add mapping to appropriate constant (e.g., `AIRWAY_MAP`)
 3. Update `fillCase()` function if needed

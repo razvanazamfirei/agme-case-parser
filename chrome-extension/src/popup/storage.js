@@ -2,7 +2,7 @@
  * Persistence layer for state and settings
  */
 
-const Storage = {
+const _Storage = {
   async loadState() {
     try {
       const result = await chrome.storage.local.get([

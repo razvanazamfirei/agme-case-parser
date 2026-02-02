@@ -173,3 +173,27 @@ cd ..
 ```
 
 Upload the zip file to Chrome Web Store or share with users.
+
+## CI/CD Release Pipeline
+
+This repo includes a GitHub Actions workflow that builds and packages the
+extension automatically.
+
+### Automatic Releases (recommended)
+
+1. Bump `version` in `chrome-extension/manifest.json`
+2. Tag the commit and push the tag:
+
+```bash
+git tag v1.2.0
+git push origin v1.2.0
+```
+
+The workflow builds the extension, creates a versioned zip, and attaches it to
+the GitHub Release as an asset.
+
+### Manual Runs
+
+You can also run the workflow from the GitHub Actions tab using
+"Chrome Extension Release" → "Run workflow". This produces the zip as a build
+artifact without creating a release.

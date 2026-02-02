@@ -37,7 +37,7 @@ export const Settings = {
       await Storage.saveSettings(settings);
       UI.showStatus("Settings saved", "success");
       UI.hideSection(DOM.settingsSection);
-    } catch (error) {
+    } catch (_error) {
       UI.showStatus("Error saving settings", "error");
     }
   },

@@ -2,7 +2,7 @@
  * Excel file parsing
  */
 
-const Excel = {
+export const Excel = {
   async parseFile(file) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
