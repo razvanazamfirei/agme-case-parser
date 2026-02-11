@@ -21,6 +21,12 @@ converting it to standardized case log format with ACGME web form integration.
 - **Web Integration**: Chrome extension for auto-filling ACGME case entry forms
 - **Debug Tools**: Interactive categorization debugger with rich formatting
 
+## Requirements
+
+- Python 3.11+
+- `uv` (recommended) or `pip`
+- For the Chrome extension: Node.js 18+ and `bun`
+
 ## Installation
 
 ### Using uv (recommended)
@@ -45,7 +51,7 @@ pip install -e .
 ### Chrome Extension
 
 ```bash
-# Install JavaScript dependencies for linting
+# Install JavaScript dependencies
 bun install
 ```
 
@@ -82,30 +88,15 @@ case-parser input.xlsx output.xlsx --json-export cases.json --resident-id "13255
 
 ### Web Integration (ACGME Auto-Fill)
 
-Export cases to JSON format for use with the Chrome extension:
+Use the Chrome extension to upload a case log spreadsheet and autofill ACGME case entry forms.
 
-```bash
-# Basic JSON export
-case-parser input.xlsx output.xlsx --json-export cases.json
+1. Build the extension from `chrome-extension/` (`bun run build`)
+2. Load `chrome-extension/dist` in `chrome://extensions/` (Developer mode)
+3. Open the ACGME Case Entry page
+4. Upload your Excel file (`.xlsx`, `.xls`, or `.csv`) in the popup
+5. Click Fill (and Submit when ready)
 
-# With resident and program information
-case-parser input.xlsx output.xlsx \
-  --json-export cases.json \
-  --resident-id "1325527" \
-  --program-id "0404121134" \
-  --program-name "University of Pennsylvania Health System Program"
-```
-
-Then use the Chrome extension to autofill ACGME case entry forms:
-
-1. Install the Chrome extension from the `chrome-extension/` directory
-2. Navigate to the ACGME case entry page
-3. Upload the JSON file via the extension popup
-4. Select a case and click "Fill Form"
-5. Review and manually submit
-
-See [chrome-extension/README.md](chrome-extension/README.md) for detailed
-instructions.
+See [chrome-extension/README.md](chrome-extension/README.md) for full setup, packaging, and release details.
 
 ### Debug Categorization
 
@@ -146,6 +137,18 @@ command-line options:
 - `--col-procedure`: Procedure column name (default: "Procedure")
 - `--col-services`: Services column name (default: "Services")
 
+### Input File Format (Exact)
+
+- File types: `.xlsx`, `.xls`, or `.csv`
+- Header row required; one row per case
+- Required columns (exact names unless overridden): `Date`, `Episode ID`, `Responsible Provider`, `Age At Encounter`, `ASA`, `Final Anesthesia Type`, `Procedure`, `Services`
+- Optional columns: `Emergent`, `Procedure Notes`
+- `Services` values must be newline-separated within the cell
+- `Date` should be parseable by pandas (recommended: `MM/DD/YYYY`); missing/unparseable dates fall back to `--default-year` (default 2025, January 1)
+- `Age At Encounter` must be numeric
+
+For a step-by-step walkthrough, see `USER_GUIDE.md`.
+
 ## Project Structure
 
 ```
@@ -178,22 +181,22 @@ case-parser/
 │           ├── age_patterns.py      # Age range categorization
 │           └── anesthesia_patterns.py       # Anesthesia type mapping
 ├── chrome-extension/
-│   ├── manifest.json            # Chrome extension config
-│   ├── popup.html               # Extension popup UI
-│   ├── popup.css                # Popup styling
-│   ├── popup.js                 # Popup logic
-│   ├── content.js               # Form filling script
-│   ├── content.css              # Content script styles
-│   ├── xlsx.min.js              # SheetJS for Excel parsing
-│   ├── icons/                   # Extension icons
-│   └── README.md                # Extension documentation
+│   ├── manifest.json            # Extension manifest (MV3)
+│   ├── src/
+│   │   ├── content.js           # ACGME page content script
+│   │   └── popup/               # Modular popup application
+│   ├── public/                  # Static assets (icons, xlsx.min.js)
+│   ├── dist/                    # Build output (load this in Chrome)
+│   ├── README.md                # Extension usage and packaging
+│   ├── BUILD.md                 # Build/release process
+│   └── PRIVACY.md               # Privacy statement
 ├── tests/                       # Unit tests
 ├── debug_categorization.py      # Categorization debugger
-├── submit_case.py               # ACGME submission script
 ├── main.py                      # Main entry point
 ├── pyproject.toml               # Project configuration
 ├── package.json                 # JavaScript tooling
 ├── biome.json                   # JavaScript linter config
+├── USER_GUIDE.md                # End-user guide
 └── README.md                    # This file
 ```
 
@@ -282,8 +285,8 @@ python -c "from src.case_parser.patterns import *; print('OK')"
 # Debug categorization
 python debug_categorization.py "procedure" "service"
 
-# Process sample file
-python main.py sample.xlsx output.xlsx --validation-report validation.txt
+# Process a file
+python main.py input.xlsx output.xlsx --validation-report validation.txt
 ```
 
 ### Adding New Patterns
@@ -314,10 +317,11 @@ Load the extension in Chrome:
 1. Navigate to `chrome://extensions/`
 2. Enable "Developer mode"
 3. Click "Load unpacked"
-4. Select the `chrome-extension/` directory
+4. Select the `chrome-extension/dist` directory
 
 ## Documentation
 
+- **USER_GUIDE.md**: End-user guide with CLI and extension walkthroughs
 - **src/case_parser/patterns/README.md**: Comprehensive pattern documentation
   with examples and debugging tips
 - **chrome-extension/README.md**: Extension installation, usage, and
@@ -337,7 +341,7 @@ The tool includes comprehensive error handling:
 
 ## License
 
-MIT License — see LICENSE file for details.
+MIT License — see LICENSE for details.
 
 ## Contributing
 
