@@ -18,12 +18,14 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: "latest"
+          bun-version: latest
 
-      - name: Install dependencies
+      - name: Install extension dependencies
+        working-directory: chrome-extension
         run: bun install --frozen-lockfile
 
       - name: Build extension
+        working-directory: chrome-extension
         run: |
           bun run clean
           bun run build
@@ -38,6 +40,7 @@ jobs:
               exit 1
             fi
           fi
+
           ZIP_NAME="acgme-case-submitter-v${VERSION}.zip"
           (cd chrome-extension/dist && zip -r "../../${ZIP_NAME}" .)
           sha256sum "${ZIP_NAME}" > "${ZIP_NAME}.sha256"

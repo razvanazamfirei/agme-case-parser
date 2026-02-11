@@ -2,6 +2,10 @@
  * Form manipulation and data handling
  */
 
+import { DOM } from "./constants.js";
+import { State } from "./state.js";
+import { UI } from "./ui.js";
+
 export const Form = {
   setSelect(selectId, value) {
     const select = UI.get(selectId);
@@ -9,7 +13,7 @@ export const Form = {
       if (select) {
         select.value = "";
       }
-      return;
+      return { type: "none", original: value };
     }
 
     const options = [...select.options];
@@ -17,7 +21,7 @@ export const Form = {
     // Exact match
     if (options.some((opt) => opt.value === value)) {
       select.value = value;
-      return;
+      return { type: "exact", original: value, matched: value };
     }
 
     // Case-insensitive match
@@ -27,7 +31,11 @@ export const Form = {
     );
     if (caseInsensitive) {
       select.value = caseInsensitive.value;
-      return;
+      return {
+        type: "exact",
+        original: value,
+        matched: caseInsensitive.value,
+      };
     }
 
     // Partial match
@@ -39,34 +47,64 @@ export const Form = {
     );
     if (partial) {
       select.value = partial.value;
-      return;
+      return { type: "partial", original: value, matched: partial.value };
     }
 
     select.value = "";
+    return { type: "none", original: value };
   },
 
   setCheckboxGroup(name, valuesString) {
     const checkboxes = document.querySelectorAll(`input[name="${name}"]`);
+    const matchInfo = { exact: [], partial: [], unmatched: [] };
 
     checkboxes.forEach((cb) => {
       cb.checked = false;
     });
 
     if (!valuesString) {
-      return;
+      return { type: "none", matches: matchInfo };
     }
 
     const values = valuesString.split(";").map((v) => v.trim().toLowerCase());
 
     checkboxes.forEach((cb) => {
       const cbValue = cb.value.toLowerCase();
-      const matches = values.some(
-        (v) => v === cbValue || cbValue.includes(v) || v.includes(cbValue),
+      const exactMatch = values.find((v) => v === cbValue);
+      const partialMatch = values.find(
+        (v) => cbValue.includes(v) || v.includes(cbValue),
       );
-      if (matches) {
+
+      if (exactMatch) {
         cb.checked = true;
+        matchInfo.exact.push({ original: exactMatch, matched: cb.value });
+      } else if (partialMatch) {
+        cb.checked = true;
+        matchInfo.partial.push({ original: partialMatch, matched: cb.value });
       }
     });
+
+    // Track unmatched values
+    const matchedOriginals = [
+      ...matchInfo.exact.map((m) => m.original),
+      ...matchInfo.partial.map((m) => m.original),
+    ];
+    matchInfo.unmatched = values.filter((v) => !matchedOriginals.includes(v));
+
+    const hasPartial = matchInfo.partial.length > 0;
+    const hasExact = matchInfo.exact.length > 0;
+
+    if (hasExact) {
+      return {
+        type: hasPartial ? "partial" : "exact",
+        matches: matchInfo,
+      };
+    } else {
+      return {
+        type: hasPartial ? "partial" : "none",
+        matches: matchInfo,
+      };
+    }
   },
 
   getCheckboxGroup(name) {
@@ -105,19 +143,40 @@ export const Form = {
       return;
     }
 
+    // Clear all match badges first
+    UI.clearMatchBadges();
+
     UI.get(DOM.caseId).value = caseData.caseId || "";
     UI.get(DOM.date).value = caseData.date || "";
     UI.get(DOM.attending).value = caseData.attending || "";
     UI.get(DOM.comments).value = caseData.comments || "";
 
-    this.setSelect(DOM.ageCategory, caseData.ageCategory);
-    this.setSelect(DOM.asa, caseData.asa);
-    this.setSelect(DOM.anesthesia, caseData.anesthesia);
-    this.setSelect(DOM.procedureCategory, caseData.procedureCategory);
+    const ageCategoryMatch = this.setSelect(
+      DOM.ageCategory,
+      caseData.ageCategory,
+    );
+    const asaMatch = this.setSelect(DOM.asa, caseData.asa);
+    const anesthesiaMatch = this.setSelect(DOM.anesthesia, caseData.anesthesia);
+    const procedureCategoryMatch = this.setSelect(
+      DOM.procedureCategory,
+      caseData.procedureCategory,
+    );
 
-    this.setCheckboxGroup("airway", caseData.airway);
-    this.setCheckboxGroup("vascular", caseData.vascularAccess);
-    this.setCheckboxGroup("monitoring", caseData.monitoring);
+    const airwayMatch = this.setCheckboxGroup("airway", caseData.airway);
+    const vascularMatch = this.setCheckboxGroup(
+      "vascular",
+      caseData.vascularAccess,
+    );
+    const monitoringMatch = this.setCheckboxGroup(
+      "monitoring",
+      caseData.monitoring,
+    );
+
+    // Show match badges for partial matches
+    UI.showMatchBadge(DOM.ageCategory, ageCategoryMatch);
+    UI.showMatchBadge(DOM.asa, asaMatch);
+    UI.showMatchBadge(DOM.anesthesia, anesthesiaMatch);
+    UI.showMatchBadge(DOM.procedureCategory, procedureCategoryMatch);
 
     this.setRadioGroup("difficultAirway", caseData.difficultAirway || "");
     this.setRadioGroup(
@@ -130,10 +189,10 @@ export const Form = {
   },
 
   _apply5ELogic(caseData) {
-    const is5E = caseData.asa?.toString().toUpperCase() === "5E";
+    const isFiveE = caseData.asa?.toString().toUpperCase() === "5E";
     if (
       State.settings.auto5EPathology &&
-      is5E &&
+      isFiveE &&
       !caseData.lifeThreateningPathology
     ) {
       this.setRadioGroup("lifeThreateningPathology", "Non-Trauma");
@@ -167,6 +226,34 @@ export const Form = {
       cardiacAutoFill: State.settings.cardiacAutoFill,
       auto5EPathology: State.settings.auto5EPathology,
       showWarnings: State.settings.showWarnings,
+    };
+  },
+
+  validate() {
+    const missing = [];
+    const warnings = [];
+
+    const data = this.getData();
+    const hasAttending = data.attending || State.settings.defaultAttending;
+
+    if (!hasAttending) {
+      missing.push("Attending");
+    }
+    if (!data.asa) {
+      missing.push("ASA");
+    }
+    if (!data.anesthesia) {
+      missing.push("Anesthesia Type");
+    }
+    if (!data.procedureCategory) {
+      warnings.push("Procedure Category");
+    }
+
+    return {
+      isValid: missing.length === 0,
+      missing,
+      warnings,
+      hasWarnings: warnings.length > 0,
     };
   },
 };

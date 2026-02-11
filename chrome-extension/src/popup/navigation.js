@@ -2,7 +2,13 @@
  * Case navigation logic
  */
 
-const _Navigation = {
+import { DOM, STATUS_TYPES } from "./constants.js";
+import { Form } from "./form.js";
+import { State } from "./state.js";
+import { Storage } from "./storage.js";
+import { UI } from "./ui.js";
+
+export const Navigation = {
   goToCase(index) {
     if (index < 0 || index >= State.cases.length) {
       return;
@@ -12,7 +18,11 @@ const _Navigation = {
     Form.populate(State.getCurrentCase());
     this.update();
     UI.hideStatus();
-    Confirmation.hide();
+    // Disable Submit button when navigating to new case
+    const submitBtn = UI.get(DOM.fillSubmitBtn);
+    if (submitBtn) {
+      submitBtn.disabled = true;
+    }
     Storage.saveState();
   },
 

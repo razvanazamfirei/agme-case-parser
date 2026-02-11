@@ -2,14 +2,13 @@
  * Constants and configuration
  */
 
-const _DOM = {
+export const DOM = {
   // Sections
   uploadSection: "uploadSection",
   navSection: "navSection",
   previewSection: "previewSection",
   settingsSection: "settingsSection",
   statusSection: "statusSection",
-  confirmationPanel: "confirmationPanel",
 
   // Upload
   uploadBtn: "uploadBtn",
@@ -42,8 +41,6 @@ const _DOM = {
   skipBtn: "skipBtn",
   fillBtn: "fillBtn",
   fillSubmitBtn: "fillSubmitBtn",
-  cancelSubmitBtn: "cancelSubmitBtn",
-  confirmSubmitBtn: "confirmSubmitBtn",
 
   // Settings
   settingsToggle: "settingsToggle",
@@ -53,17 +50,19 @@ const _DOM = {
   submitDelayValue: "submitDelayValue",
   settingCardiacAutoFill: "settingCardiacAutoFill",
   settingAuto5EPathology: "settingAuto5EPathology",
-  settingConfirmBeforeSubmit: "settingConfirmBeforeSubmit",
   settingShowWarnings: "settingShowWarnings",
   saveSettingsBtn: "saveSettingsBtn",
   clearSessionBtn: "clearSessionBtn",
 
   // Status
   statusMessage: "statusMessage",
-  confirmationSummary: "confirmationSummary",
+
+  // Validation
+  validationSummary: "validationSummary",
+  validationText: "validationText",
 };
 
-const _EXPECTED_COLUMNS = [
+export const EXPECTED_COLUMNS = [
   "Case ID",
   "Case Date",
   "Supervisor",
@@ -77,17 +76,17 @@ const _EXPECTED_COLUMNS = [
   "Specialized Monitoring Techniques",
 ];
 
-const _STORAGE_KEYS = {
+export const STORAGE_KEYS = {
   cases: "acgme_cases",
   currentIndex: "acgme_currentIndex",
   caseStatuses: "acgme_caseStatuses",
   settings: "acgme_settings",
 };
 
-const _STATUS_TYPES = {
+export const STATUS_TYPES = {
   pending: "pending",
   submitted: "submitted",
   skipped: "skipped",
 };
 
-const _ACGME_URL_PATTERN = "apps.acgme.org/ads/CaseLogs/CaseEntry";
+export const ACGME_URL_PATTERN = "apps.acgme.org/ads/CaseLogs/CaseEntry";

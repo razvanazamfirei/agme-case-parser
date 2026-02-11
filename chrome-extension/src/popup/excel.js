@@ -2,6 +2,8 @@
  * Excel file parsing
  */
 
+import { EXPECTED_COLUMNS } from "./constants.js";
+
 export const Excel = {
   async parseFile(file) {
     return new Promise((resolve, reject) => {
@@ -19,8 +21,8 @@ export const Excel = {
             return;
           }
 
-          const cases = this._parseRows(rows);
-          resolve(cases);
+          const result = this._parseRows(rows);
+          resolve(result);
         } catch (err) {
           reject(err);
         }
@@ -33,7 +35,8 @@ export const Excel = {
 
   _parseRows(rows) {
     const headers = rows[0].map((h) => String(h || "").trim());
-    const colIndex = this._mapColumns(headers);
+    const mappingResult = this._mapColumns(headers);
+    const colIndex = mappingResult.colIndex;
     const cases = [];
 
     for (let i = 1; i < rows.length; i++) {
@@ -67,20 +70,33 @@ export const Excel = {
       }
     }
 
-    return cases;
+    return { cases, mappingResult };
   },
 
   _mapColumns(headers) {
     const colIndex = {};
+    const mapped = [];
+    const missing = [];
+
     EXPECTED_COLUMNS.forEach((col) => {
       const idx = headers.findIndex(
         (h) => h.toLowerCase() === col.toLowerCase(),
       );
-      if (idx !== -1) {
+      if (idx === -1) {
+        missing.push(col);
+      } else {
         colIndex[col] = idx;
+        mapped.push(col);
       }
     });
-    return colIndex;
+
+    return {
+      colIndex,
+      mapped,
+      missing,
+      totalExpected: EXPECTED_COLUMNS.length,
+      totalMapped: mapped.length,
+    };
   },
 
   _getString(row, idx) {

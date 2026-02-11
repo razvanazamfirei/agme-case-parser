@@ -184,37 +184,50 @@ function uncheckAllProcedures() {
   });
 }
 
-// Improved attending lookup with fuzzy matching
+// Attending lookup with high-confidence matching only
 function findAttendingId(name, returnAllMatches = false) {
   const select = document.getElementById("Attendings");
   if (!select) {
     return returnAllMatches ? [] : null;
   }
 
-  const nameLower = name.toLowerCase().trim();
+  const normalize = (text) =>
+    text
+      .toLowerCase()
+      .replace(/[.,]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+
+  const nameNormalized = normalize(name);
   const matches = [];
 
-  // Extract last name for fuzzy matching
-  const nameParts = nameLower.split(/[,\s]+/).filter(Boolean);
-  const lastName = nameParts[0];
+  // Extract name parts (expecting "Last, First" but tolerant of spacing)
+  const nameParts = nameNormalized.split(/\s+/).filter(Boolean);
+  const lastName = nameParts[0] || "";
+  const firstName = nameParts[1] || "";
 
   for (const opt of select.options) {
     if (!opt.value || opt.value === "") {
       continue;
     }
-    const optText = opt.text.toLowerCase();
+    const optText = opt.text;
+    const optNormalized = normalize(optText);
 
-    // Exact match (case insensitive)
-    if (optText.includes(nameLower)) {
+    // Exact match (normalized)
+    if (optNormalized === nameNormalized) {
       if (returnAllMatches) {
         matches.push({ value: opt.value, text: opt.text, matchType: "exact" });
       } else {
         return opt.value;
       }
     }
-    // Last name only match
-    else if (lastName && optText.startsWith(lastName)) {
-      matches.push({ value: opt.value, text: opt.text, matchType: "lastName" });
+    // High-confidence prefix match (e.g., missing middle initial), require first+last
+    else if (
+      lastName &&
+      firstName &&
+      optNormalized.startsWith(`${lastName} ${firstName}`)
+    ) {
+      matches.push({ value: opt.value, text: opt.text, matchType: "prefix" });
     }
   }
 
@@ -222,9 +235,12 @@ function findAttendingId(name, returnAllMatches = false) {
     return matches;
   }
 
-  // Return first lastName match if no exact match
-  const lastNameMatch = matches.find((m) => m.matchType === "lastName");
-  return lastNameMatch ? lastNameMatch.value : null;
+  // Return only if there's a single high-confidence non-exact match
+  const nonExactMatches = matches.filter((m) => m.matchType !== "exact");
+  if (nonExactMatches.length === 1) {
+    return nonExactMatches[0].value;
+  }
+  return null;
 }
 
 // Get available attending options for display
@@ -291,10 +307,11 @@ function fillCase(caseData) {
         attendingSet = true;
       }
     } else {
-      // Try fuzzy matches
-      const matches = findAttendingId(caseData.attending, true);
-      if (matches.length > 0) {
-        // Use first match but warn if warnings enabled
+      // Try high-confidence matches only (unique prefix match)
+      const matches = findAttendingId(caseData.attending, true).filter(
+        (m) => m.matchType !== "exact",
+      );
+      if (matches.length === 1) {
         if (setSelectValue("Attendings", matches[0].value)) {
           result.filled.push("attending");
           if (caseData.showWarnings !== false) {
@@ -536,10 +553,11 @@ function fillCase(caseData) {
 
   // Set Life-Threatening Pathology
   // Auto-check Non-Trauma for 5E cases if setting enabled
-  const is5E = caseData.asa && caseData.asa.toString().toUpperCase() === "5E";
+  const isFiveE =
+    caseData.asa && caseData.asa.toString().toUpperCase() === "5E";
   let pathologyToCheck = caseData.lifeThreateningPathology;
 
-  if (caseData.auto5EPathology !== false && is5E && !pathologyToCheck) {
+  if (caseData.auto5EPathology !== false && isFiveE && !pathologyToCheck) {
     pathologyToCheck = "Non-Trauma";
     if (caseData.showWarnings !== false) {
       result.warnings.push(
@@ -589,11 +607,49 @@ function submitCase() {
   return true;
 }
 
-// Expose functions globally
-window.fillACGMECase = fillCase;
-window.submitACGMECase = submitCase;
-window.getAttendingOptions = getAttendingOptions;
+// Listen for messages from the popup
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "fillCase") {
+    try {
+      const result = fillCase(message.data);
+      if (message.autoSubmit) {
+        result.submitted = submitCase();
+      }
+      sendResponse({ success: true, result });
+    } catch (error) {
+      console.error("Error filling case:", error);
+      sendResponse({ success: false, errors: [error.message] });
+    }
+    return true; // Keep channel open for async response
+  }
 
-console.log(
-  "ACGME Case Submitter loaded. Use fillACGMECase({...}) to fill the form.",
-);
+  if (message.action === "submitCase") {
+    try {
+      const submitted = submitCase();
+      if (submitted) {
+        sendResponse({ success: true });
+      } else {
+        sendResponse({ success: false, errors: ["Submit button not found."] });
+      }
+    } catch (error) {
+      console.error("Error submitting case:", error);
+      sendResponse({ success: false, errors: [error.message] });
+    }
+    return true;
+  }
+
+  if (message.action === "getAttendingOptions") {
+    try {
+      const options = getAttendingOptions();
+      sendResponse({ success: true, options });
+    } catch (error) {
+      console.error("Error getting attending options:", error);
+      sendResponse({ success: false, errors: [error.message] });
+    }
+    return true;
+  }
+
+  return false; // Not our message
+});
+
+console.log("ACGME Case Submitter content script loaded.");

@@ -2,7 +2,10 @@
  * Persistence layer for state and settings
  */
 
-const _Storage = {
+import { STORAGE_KEYS } from "./constants.js";
+import { State } from "./state.js";
+
+export const Storage = {
   async loadState() {
     try {
       const result = await chrome.storage.local.get([

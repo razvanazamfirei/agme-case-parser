@@ -298,10 +298,12 @@ The debug script uses rich formatting to display:
 
 **Extension development**:
 
-1. Edit extension files in `chrome-extension/`
-2. Run `bun run check` to lint and format
-3. Load unpacked extension in Chrome
-4. Test on ACGME forms
+1. Edit extension files in `chrome-extension/src/`
+2. Run `bun run dev` for development with HMR
+3. Or run `bun run build` for production build
+4. Run `bun run check` to lint and format
+5. Load unpacked extension from `chrome-extension/dist/` in Chrome
+6. Test on ACGME forms
 
 ## Documentation
 

@@ -2,6 +2,16 @@
  * Application initialization and event handlers
  */
 
+import { ACGMEForm } from "./acgme.js";
+import { DOM, STATUS_TYPES } from "./constants.js";
+import { Excel } from "./excel.js";
+import { Form } from "./form.js";
+import { Navigation } from "./navigation.js";
+import { Settings } from "./settings.js";
+import { State } from "./state.js";
+import { Storage } from "./storage.js";
+import { UI } from "./ui.js";
+
 const FileUpload = {
   async handleFile(file) {
     if (!file) {
@@ -11,7 +21,8 @@ const FileUpload = {
     UI.get(DOM.fileName).textContent = file.name;
 
     try {
-      const cases = await Excel.parseFile(file);
+      const result = await Excel.parseFile(file);
+      const { cases, mappingResult } = result;
 
       if (cases.length === 0) {
         UI.showStatus("No valid cases found in file", "error");
@@ -23,6 +34,10 @@ const FileUpload = {
       Form.populate(State.getCurrentCase());
       Navigation.update();
       Storage.saveState();
+
+      // Show mapping status
+      UI.showMappingStatus(mappingResult);
+
       UI.showStatus(`Loaded ${cases.length} cases`, "success");
     } catch (error) {
       UI.showStatus(`Error parsing file: ${error.message}`, "error");
@@ -50,8 +65,8 @@ const Session = {
       UI.get(DOM.fileInput).value = "";
       UI.showStatus("Session cleared", "success");
     } catch (error) {
+      console.error("Error clearing session:", error);
       UI.showStatus("Error clearing session", "error");
-      console.error(error);
     }
   },
 
@@ -71,78 +86,128 @@ const Session = {
 
 const EventHandlers = {
   register() {
+    const addListener = (id, event, handler) => {
+      const element = UI.get(id);
+      if (!element) {
+        if (process.env.NODE_ENV === "development") {
+          console.error(`Element not found: ${id}`);
+        }
+        return;
+      }
+      element.addEventListener(event, (...args) => {
+        if (process.env.NODE_ENV === "development") {
+          console.log(`Button clicked: ${id}`);
+        }
+        try {
+          handler(...args);
+        } catch (error) {
+          console.error(`Error in ${id} handler:`, error);
+        }
+      });
+    };
+
     // Upload
-    UI.get(DOM.uploadBtn).addEventListener("click", () =>
-      FileUpload.openFilePicker(),
-    );
-    UI.get(DOM.fileInput).addEventListener("change", (e) =>
+    addListener(DOM.uploadBtn, "click", () => FileUpload.openFilePicker());
+    addListener(DOM.fileInput, "change", (e) =>
       FileUpload.handleFile(e.target.files[0]),
     );
 
     // Navigation
-    UI.get(DOM.prevBtn).addEventListener("click", () =>
+    addListener(DOM.prevBtn, "click", () =>
       Navigation.goToCase(State.currentIndex - 1),
     );
-    UI.get(DOM.nextBtn).addEventListener("click", () =>
+    addListener(DOM.nextBtn, "click", () =>
       Navigation.goToCase(State.currentIndex + 1),
     );
-    UI.get(DOM.caseJump).addEventListener("change", (e) =>
-      Navigation.goToCase(parseInt(e.target.value, 10)),
+    addListener(DOM.caseJump, "change", (e) =>
+      Navigation.goToCase(Number.parseInt(e.target.value, 10)),
     );
-    UI.get(DOM.filterPending).addEventListener("change", () =>
-      Navigation.update(),
-    );
+    addListener(DOM.filterPending, "change", () => Navigation.update());
 
     // Actions
-    UI.get(DOM.skipBtn).addEventListener("click", () => {
+    addListener(DOM.skipBtn, "click", () => {
       State.setCaseStatus(State.currentIndex, STATUS_TYPES.skipped);
       Navigation.update();
       Storage.saveState();
       Navigation.goToNextPending();
     });
 
-    UI.get(DOM.fillBtn).addEventListener("click", () => ACGMEForm.fill(false));
+    addListener(DOM.fillBtn, "click", async () => {
+      const validation = Form.validate();
+      if (!validation.isValid) {
+        UI.showValidation(validation);
+        UI.showStatus(
+          "Please complete required fields before filling",
+          "error",
+        );
+        return;
+      }
 
-    UI.get(DOM.fillSubmitBtn).addEventListener("click", () => {
-      if (!State.pendingSubmission) {
-        if (State.settings.confirmBeforeSubmit) {
-          Confirmation.show();
-        } else {
-          ACGMEForm.fill(true);
+      UI.get(DOM.fillBtn).disabled = true;
+      try {
+        const result = await ACGMEForm.fill(false);
+        // Enable Submit only after a successful fill operation
+        UI.get(DOM.fillSubmitBtn).disabled = !result?.success;
+      } finally {
+        UI.get(DOM.fillBtn).disabled = false;
+      }
+    });
+
+    addListener(DOM.fillSubmitBtn, "click", async () => {
+      const validation = Form.validate();
+      if (!validation.isValid) {
+        UI.showValidation(validation);
+        UI.showStatus(
+          "Please complete required fields before submitting",
+          "error",
+        );
+        return;
+      }
+      UI.get(DOM.fillSubmitBtn).disabled = true;
+      try {
+        await ACGMEForm.fill(true);
+      } finally {
+        if (
+          State.getCaseStatus(State.currentIndex) !== STATUS_TYPES.submitted
+        ) {
+          UI.get(DOM.fillSubmitBtn).disabled = false;
         }
       }
     });
 
-    UI.get(DOM.cancelSubmitBtn).addEventListener("click", () =>
-      Confirmation.hide(),
-    );
-    UI.get(DOM.confirmSubmitBtn).addEventListener("click", () => {
-      Confirmation.hide();
-      ACGMEForm.fill(true);
-    });
-
     // Settings
-    UI.get(DOM.settingsToggle).addEventListener("click", () =>
-      Settings.toggle(),
-    );
-    UI.get(DOM.settingSubmitDelay).addEventListener("input", (e) => {
+    addListener(DOM.settingsToggle, "click", () => Settings.toggle());
+    addListener(DOM.settingSubmitDelay, "input", (e) => {
       UI.get(DOM.submitDelayValue).textContent = `${e.target.value}s`;
     });
-    UI.get(DOM.saveSettingsBtn).addEventListener("click", () =>
-      Settings.save(),
-    );
-    UI.get(DOM.clearSessionBtn).addEventListener("click", () =>
-      Session.clear(),
-    );
+    addListener(DOM.saveSettingsBtn, "click", () => Settings.save());
+    addListener(DOM.clearSessionBtn, "click", () => Session.clear());
 
     // ASA field - auto-check 5E pathology
-    UI.get(DOM.asa).addEventListener("change", (e) => {
-      const is5E = e.target.value === "5E";
+    addListener(DOM.asa, "change", (e) => {
+      const isFiveE = e.target.value === "5E";
       const currentPathology = Form.getRadioGroup("lifeThreateningPathology");
 
-      if (State.settings.auto5EPathology && is5E && !currentPathology) {
+      if (State.settings.auto5EPathology && isFiveE && !currentPathology) {
         Form.setRadioGroup("lifeThreateningPathology", "Non-Trauma");
       }
+
+      // Real-time validation
+      const validation = Form.validate();
+      UI.showValidation(validation);
+    });
+
+    // Real-time validation for other required fields
+    const requiredFields = [
+      DOM.attending,
+      DOM.anesthesia,
+      DOM.procedureCategory,
+    ];
+    requiredFields.forEach((fieldId) => {
+      addListener(fieldId, "change", () => {
+        const validation = Form.validate();
+        UI.showValidation(validation);
+      });
     });
 
     // Keyboard shortcuts
@@ -159,20 +224,35 @@ const EventHandlers = {
       } else if (e.key === "ArrowRight" && !isInputFocused) {
         e.preventDefault();
         Navigation.goToCase(State.currentIndex + 1);
-      } else if (e.key === "Escape" && State.pendingSubmission) {
-        Confirmation.hide();
       }
     });
+
+    if (process.env.NODE_ENV === "development") {
+      console.log("Event handlers registered successfully");
+    }
   },
 };
 
 const App = {
   async init() {
-    await Storage.loadSettings();
-    Settings.applyToUI();
-    await Session.restore();
-    EventHandlers.register();
+    try {
+      await Storage.loadSettings();
+      Settings.applyToUI();
+      await Session.restore();
+      EventHandlers.register();
+      if (process.env.NODE_ENV === "development") {
+        console.log("ACGME Case Submitter initialized successfully");
+      }
+    } catch (error) {
+      console.error("Error initializing app:", error);
+    }
   },
 };
 
-document.addEventListener("DOMContentLoaded", () => App.init());
+// Handle both DOMContentLoaded and already-loaded cases
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => App.init());
+} else {
+  // DOM already loaded
+  App.init();
+}

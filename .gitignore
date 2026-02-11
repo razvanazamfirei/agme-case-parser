@@ -67,3 +67,4 @@ dmypy.json
 .uv/
 acgme_config.json
 node_modules/
+*.zip

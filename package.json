@@ -4,14 +4,14 @@
   "description": "Anesthesia case parser with Chrome extension for ACGME submission",
   "type": "module",
   "scripts": {
-    "build": "bun run chrome-extension/build.js",
-    "build:dev": "bun run chrome-extension/build.js --dev",
-    "watch": "bun run chrome-extension/build.js --dev --watch",
+    "build": "cd chrome-extension && bun run build",
+    "build:dev": "cd chrome-extension && bun run build:dev",
+    "watch": "cd chrome-extension && bun run dev",
     "clean": "rm -rf chrome-extension/dist",
-    "lint": "biome lint chrome-extension/",
-    "lint:fix": "biome lint --write chrome-extension/",
-    "format": "biome format --write chrome-extension/",
-    "check": "biome check chrome-extension/"
+    "lint": "cd chrome-extension && bun run lint",
+    "lint:fix": "cd chrome-extension && bun run lint:fix",
+    "format": "cd chrome-extension && bun run format",
+    "check": "cd chrome-extension && bun run check"
   },
   "dependencies": {
     "@types/chrome": "^0.1.36",

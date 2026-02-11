@@ -2,11 +2,12 @@
  * Application state management
  */
 
+import { STATUS_TYPES } from "./constants.js";
+
 export const State = {
   cases: [],
   currentIndex: 0,
   caseStatuses: {},
-  pendingSubmission: false,
 
   settings: {
     defaultInstitution: "",
@@ -14,7 +15,6 @@ export const State = {
     submitDelay: 0.5,
     cardiacAutoFill: true,
     auto5EPathology: true,
-    confirmBeforeSubmit: true,
     showWarnings: true,
   },
 
@@ -22,7 +22,6 @@ export const State = {
     this.cases = [];
     this.currentIndex = 0;
     this.caseStatuses = {};
-    this.pendingSubmission = false;
   },
 
   setCases(cases) {

@@ -1,5 +1,5 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.3.13/schema.json",
+  "$schema": "https://biomejs.dev/schemas/2.3.14/schema.json",
   "vcs": {
     "enabled": true,
     "clientKind": "git",
@@ -7,7 +7,8 @@
   },
   "files": {
     "ignoreUnknown": false,
-    "maxSize": 2097152
+    "maxSize": 2097152,
+    "includes": ["**", "!**/dist", "!**/*.min.js", "!**/node_modules"]
   },
   "formatter": {
     "enabled": true,
@@ -61,7 +62,7 @@
     },
     { "includes": ["*.toml"], "formatter": { "indentWidth": 2 } },
     {
-      "includes": ["chrome-extension/xlsx.min.js"],
+      "includes": ["chrome-extension/xlsx.min.js", "xlsx.min.js"],
       "linter": { "enabled": false },
       "formatter": { "enabled": false }
     }

@@ -1,22 +1,27 @@
 {
   "manifest_version": 3,
   "name": "ACGME Case Submitter",
-  "version": "1.1",
-  "description": "Auto-fill ACGME case entry forms with difficult airway and life-threatening pathology support",
-  "permissions": ["activeTab", "scripting", "storage"],
-  "host_permissions": ["https://apps.acgme.org/*"],
+  "version": "1.1.0",
+  "description": "Auto-fill ACGME case entry forms from standardized case logs.",
+  "permissions": ["storage"],
+  "host_permissions": ["https://apps.acgme.org/ads/CaseLogs/CaseEntry/*"],
+  "icons": {
+    "16": "public/icon16.png",
+    "48": "public/icon48.png",
+    "128": "public/icon128.png"
+  },
   "action": {
-    "default_popup": "popup.html",
+    "default_popup": "src/popup/index.html",
     "default_icon": {
-      "16": "icon16.png",
-      "48": "icon48.png",
-      "128": "icon128.png"
+      "16": "public/icon16.png",
+      "48": "public/icon48.png",
+      "128": "public/icon128.png"
     }
   },
   "content_scripts": [
     {
       "matches": ["https://apps.acgme.org/ads/CaseLogs/CaseEntry/*"],
-      "js": ["content.js"],
+      "js": ["src/content/content.js"],
       "run_at": "document_idle"
     }
   ],

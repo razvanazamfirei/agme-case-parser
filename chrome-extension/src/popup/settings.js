@@ -2,15 +2,19 @@
  * Settings management
  */
 
+import { DOM } from "./constants.js";
+import { State } from "./state.js";
+import { Storage } from "./storage.js";
+import { UI } from "./ui.js";
+
 export const Settings = {
   readFromUI() {
     return {
       defaultInstitution: UI.get(DOM.settingInstitution).value,
       defaultAttending: UI.get(DOM.settingDefaultAttending).value.trim(),
-      submitDelay: parseFloat(UI.get(DOM.settingSubmitDelay).value),
+      submitDelay: Number.parseFloat(UI.get(DOM.settingSubmitDelay).value),
       cardiacAutoFill: UI.get(DOM.settingCardiacAutoFill).checked,
       auto5EPathology: UI.get(DOM.settingAuto5EPathology).checked,
-      confirmBeforeSubmit: UI.get(DOM.settingConfirmBeforeSubmit).checked,
       showWarnings: UI.get(DOM.settingShowWarnings).checked,
     };
   },
@@ -25,8 +29,6 @@ export const Settings = {
     UI.get(DOM.settingCardiacAutoFill).checked = State.settings.cardiacAutoFill;
     UI.get(DOM.settingAuto5EPathology).checked =
       State.settings.auto5EPathology !== false;
-    UI.get(DOM.settingConfirmBeforeSubmit).checked =
-      State.settings.confirmBeforeSubmit !== false;
     UI.get(DOM.settingShowWarnings).checked =
       State.settings.showWarnings !== false;
   },

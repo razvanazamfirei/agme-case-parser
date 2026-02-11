@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="popup.css" />
+    <link rel="stylesheet" href="./popup.css" />
     <title>ACGME Case Submitter</title>
   </head>
   <body class="w-[600px] min-h-[400px] max-h-[600px] overflow-hidden">
@@ -19,19 +19,26 @@
               Upload Excel and cycle through cases
             </p>
           </div>
-          <button id="settingsToggle" class="btn-icon" title="Settings">
+          <button
+            id="settingsToggle"
+            class="bg-white/20 hover:bg-white/30 border-0 rounded-md p-1.5 cursor-pointer text-white flex items-center justify-center transition-colors"
+            title="Settings"
+          >
             <svg
-              width="20"
-              height="20"
+              width="20px"
+              height="20px"
               viewBox="0 0 24 24"
               fill="none"
-              stroke="currentColor"
-              stroke-width="2"
+              xmlns="http://www.w3.org/2000/svg"
             >
-              <circle cx="12" cy="12" r="3"></circle>
               <path
-                d="M12 1v4m0 14v4m-9-9h4m14 0h4m-2.6-6.4-2.8 2.8m-10.4 4.8-2.8 2.8m0-10.4 2.8 2.8m10.4 4.8 2.8 2.8"
-              ></path>
+                d="M12 4a1 1 0 0 0-1 1c0 1.692-2.046 2.54-3.243 1.343a1 1 0 1 0-1.414 1.414C7.54 8.954 6.693 11 5 11a1 1 0 1 0 0 2c1.692 0 2.54 2.046 1.343 3.243a1 1 0 0 0 1.414 1.414C8.954 16.46 11 17.307 11 19a1 1 0 1 0 2 0c0-1.692 2.046-2.54 3.243-1.343a1 1 0 1 0 1.414-1.414C16.46 15.046 17.307 13 19 13a1 1 0 1 0 0-2c-1.692 0-2.54-2.046-1.343-3.243a1 1 0 0 0-1.414-1.414C15.046 7.54 13 6.693 13 5a1 1 0 0 0-1-1zm-2.992.777a3 3 0 0 1 5.984 0 3 3 0 0 1 4.23 4.231 3 3 0 0 1 .001 5.984 3 3 0 0 1-4.231 4.23 3 3 0 0 1-5.984 0 3 3 0 0 1-4.231-4.23 3 3 0 0 1 0-5.984 3 3 0 0 1 4.231-4.231z"
+                fill="#0D0D0D"
+              />
+              <path
+                d="M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-2.828-.828a4 4 0 1 1 5.656 5.656 4 4 0 0 1-5.656-5.656z"
+                fill="#0D0D0D"
+              />
             </svg>
           </button>
         </div>
@@ -87,7 +94,36 @@
               checked
               class="rounded"
             />
-            <span>Auto-fill cardiac case extras</span>
+            <span>
+              Auto-fill cardiac case extras
+              <span class="info-tooltip">
+                <svg
+                  class="info-icon"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="2"
+                  />
+                  <path
+                    d="M12 16v-4M12 8h.01"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                  />
+                </svg>
+                <span class="tooltip-text"
+                  >Automatically checks TEE, arterial line, central line, PA
+                  catheter, and ultrasound guidance for cardiac cases</span
+                >
+              </span>
+            </span>
           </label>
 
           <label class="checkbox-label">
@@ -103,16 +139,6 @@
           <label class="checkbox-label">
             <input
               type="checkbox"
-              id="settingConfirmBeforeSubmit"
-              checked
-              class="rounded"
-            />
-            <span>Show confirmation before submit</span>
-          </label>
-
-          <label class="checkbox-label">
-            <input
-              type="checkbox"
               id="settingShowWarnings"
               checked
               class="rounded"
@@ -122,10 +148,16 @@
         </div>
 
         <div class="flex gap-2 pt-2">
-          <button id="clearSessionBtn" class="btn btn-skip flex-1">
+          <button
+            id="clearSessionBtn"
+            class="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 border-0 rounded-md text-sm font-medium cursor-pointer transition-all bg-yellow-400 text-yellow-900 hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             Clear Session
           </button>
-          <button id="saveSettingsBtn" class="btn btn-primary flex-1">
+          <button
+            id="saveSettingsBtn"
+            class="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 border-0 rounded-md text-sm font-medium cursor-pointer transition-all bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
             Save Settings
           </button>
         </div>
@@ -159,13 +191,11 @@
                 Upload an Excel file to get started
               </p>
             </div>
-            <input
-              type="file"
-              id="fileInput"
-              accept=".xlsx,.xls,.csv"
-              class="hidden"
-            />
-            <button id="uploadBtn" class="btn btn-primary">
+            <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" />
+            <button
+              id="uploadBtn"
+              class="inline-flex items-center justify-center gap-1.5 px-4 py-2 border-0 rounded-md text-sm font-medium cursor-pointer transition-all bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               Choose Excel File
             </button>
             <div id="fileName" class="text-sm text-gray-600 mt-2"></div>
@@ -177,26 +207,32 @@
           <div class="flex items-center justify-between mb-3">
             <h3 class="text-sm font-medium text-gray-700">Cases</h3>
             <div class="flex gap-4 text-xs">
-              <span class="stat pending"
+              <span class="stat pending px-1.5 py-0.5 rounded font-medium"
                 ><span id="pendingCount">0</span> pending</span
               >
-              <span class="stat submitted"
+              <span class="stat submitted px-1.5 py-0.5 rounded font-medium"
                 ><span id="submittedCount">0</span> submitted</span
               >
-              <span class="stat skipped"
+              <span class="stat skipped px-1.5 py-0.5 rounded font-medium"
                 ><span id="skippedCount">0</span> skipped</span
               >
             </div>
           </div>
 
           <div class="flex items-center gap-3">
-            <button id="prevBtn" class="btn btn-nav px-3 py-1.5 text-sm">
+            <button
+              id="prevBtn"
+              class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 border-0 rounded-md text-sm font-medium cursor-pointer transition-all bg-gray-200 text-gray-600 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               Previous
             </button>
             <div class="flex-1 text-center text-sm font-medium text-gray-700">
               <span id="currentIndex">0</span> / <span id="totalCount">0</span>
             </div>
-            <button id="nextBtn" class="btn btn-nav px-3 py-1.5 text-sm">
+            <button
+              id="nextBtn"
+              class="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 border-0 rounded-md text-sm font-medium cursor-pointer transition-all bg-gray-200 text-gray-600 hover:bg-gray-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               Next
             </button>
           </div>
@@ -240,7 +276,36 @@
               <input type="text" id="attending" />
             </div>
             <div class="form-field">
-              <label for="ageCategory">Age</label>
+              <label for="ageCategory">
+                Age
+                <span class="info-tooltip">
+                  <svg
+                    class="info-icon"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    />
+                    <path
+                      d="M12 16v-4M12 8h.01"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                  <span class="tooltip-text"
+                    >ACGME age categories: a=&lt;3mo, b=3mo-3yr, c=3-12yr,
+                    d=12-65yr, e=≥65yr</span
+                  >
+                </span>
+              </label>
               <select id="ageCategory">
                 <option value="">Select</option>
                 <option value="a">a. &lt; 3 mo</option>
@@ -283,7 +348,37 @@
               </select>
             </div>
             <div class="form-field">
-              <label for="procedureCategory">Procedure Category</label>
+              <label for="procedureCategory">
+                Procedure Category
+                <span class="info-tooltip">
+                  <svg
+                    class="info-icon"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    />
+                    <path
+                      d="M12 16v-4M12 8h.01"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                  <span class="tooltip-text"
+                    >Major ACGME procedure types. CPB=Cardiopulmonary Bypass.
+                    Open vs endovascular approach matters for vascular/cerebral
+                    cases.</span
+                  >
+                </span>
+              </label>
               <select id="procedureCategory" class="text-sm">
                 <option value="">Select</option>
                 <option value="Other (procedure cat)">Other</option>
@@ -467,7 +562,36 @@
 
           <div class="grid grid-cols-2 gap-3">
             <div class="form-field">
-              <label>Difficult Airway</label>
+              <label>
+                Difficult Airway
+                <span class="info-tooltip">
+                  <svg
+                    class="info-icon"
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    />
+                    <path
+                      d="M12 16v-4M12 8h.01"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                    />
+                  </svg>
+                  <span class="tooltip-text"
+                    >Anticipated: known difficulty. Unanticipated: unexpected
+                    difficulty during procedure. None: standard airway.</span
+                  >
+                </span>
+              </label>
               <div class="space-y-1.5 mt-1">
                 <label class="checkbox-label">
                   <input
@@ -539,31 +663,53 @@
             <textarea id="comments" rows="2" class="text-sm"></textarea>
           </div>
 
-          <div class="flex gap-2 pt-2">
-            <button id="skipBtn" class="btn btn-skip flex-1">Skip</button>
-            <button id="fillBtn" class="btn btn-secondary flex-1">
-              Fill Form
-            </button>
-            <button id="fillSubmitBtn" class="btn btn-primary flex-1">
-              Fill & Submit
-            </button>
+          <!-- Validation Summary -->
+          <div
+            id="validationSummary"
+            class="hidden mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-md"
+          >
+            <div class="flex items-start gap-2">
+              <svg
+                class="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+              <div class="flex-1">
+                <p
+                  class="text-sm font-medium text-yellow-800"
+                  id="validationText"
+                ></p>
+              </div>
+            </div>
           </div>
 
-          <!-- Confirmation Panel -->
-          <div
-            id="confirmationPanel"
-            class="hidden bg-gray-50 border rounded-lg p-4 space-y-3"
-          >
-            <h4 class="font-medium text-gray-900">Confirm Submission</h4>
-            <div id="confirmationSummary" class="text-sm space-y-1"></div>
-            <div class="flex gap-2">
-              <button id="cancelSubmitBtn" class="btn btn-nav flex-1">
-                Cancel
-              </button>
-              <button id="confirmSubmitBtn" class="btn btn-primary flex-1">
-                Submit Now
-              </button>
-            </div>
+          <div class="flex gap-2 pt-2">
+            <button
+              id="skipBtn"
+              class="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 border-0 rounded-md text-sm font-medium cursor-pointer transition-all bg-yellow-400 text-yellow-900 hover:bg-yellow-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Skip
+            </button>
+            <button
+              id="fillBtn"
+              class="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 border-0 rounded-md text-sm font-medium cursor-pointer transition-all bg-green-500 text-white hover:bg-green-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Fill Form
+            </button>
+            <button
+              id="fillSubmitBtn"
+              class="flex-1 inline-flex items-center justify-center gap-1.5 px-4 py-2 border-0 rounded-md text-sm font-medium cursor-pointer transition-all bg-primary-600 text-white hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled
+              title="Fill form first to enable"
+            >
+              Submit
+            </button>
           </div>
         </div>
       </div>
@@ -578,17 +724,7 @@
       </footer>
     </div>
 
-    <script src="xlsx.min.js"></script>
-    <script src="popup/constants.js"></script>
-    <script src="popup/state.js"></script>
-    <script src="popup/storage.js"></script>
-    <script src="popup/ui.js"></script>
-    <script src="popup/excel.js"></script>
-    <script src="popup/form.js"></script>
-    <script src="popup/navigation.js"></script>
-    <script src="popup/settings.js"></script>
-    <script src="popup/confirmation.js"></script>
-    <script src="popup/acgme.js"></script>
-    <script src="popup/app.js"></script>
+    <script data-vite-ignore src="/xlsx.min.js"></script>
+    <script type="module" src="./app.js"></script>
   </body>
 </html>
