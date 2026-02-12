@@ -86,6 +86,12 @@ Examples:
         action="store_true",
         help="Add a 'Source File' column to track which file each case came from (useful with directory input)",
     )
+    parser.add_argument(
+        "--v2",
+        action="store_true",
+        help="Use CSV v2 format (separate CaseList and ProcedureList files). "
+        "Input must be a directory containing matching CSV pairs.",
+    )
 
     # Column override options
     for field_name in ColumnMap.__dataclass_fields__:
@@ -121,12 +127,28 @@ def validate_arguments(args: argparse.Namespace) -> None:
     if not input_path.exists():
         raise FileNotFoundError(f"Input path not found: {input_path}")
 
-    # If it's a file, check the extension
-    if input_path.is_file() and input_path.suffix.lower() not in {".xlsx", ".xls"}:
+    # V2 format requires directory input
+    if hasattr(args, "v2") and args.v2:
+        if not input_path.is_dir():
+            raise ValueError(
+                "--v2 requires input to be a directory containing "
+                "CaseList and ProcedureList CSV files"
+            )
+
+        # Import here to avoid circular dependency
+        from .csv_io import discover_csv_pairs
+
+        try:
+            discover_csv_pairs(input_path)
+        except ValueError as e:
+            raise ValueError(f"CSV v2 validation failed: {e}") from e
+
+    # If it's a file (non-v2), check the extension
+    elif input_path.is_file() and input_path.suffix.lower() not in {".xlsx", ".xls"}:
         raise ValueError(f"Unsupported input file format: {input_path.suffix}")
 
-    # If it's a directory, check that it contains Excel files
-    if input_path.is_dir():
+    # If it's a directory (non-v2), check that it contains Excel files
+    elif input_path.is_dir():
         excel_files = list(input_path.glob("*.xlsx")) + list(input_path.glob("*.xls"))
         if not excel_files:
             raise ValueError(f"No Excel files found in directory: {input_path}")
@@ -207,38 +229,47 @@ def main() -> None:  # noqa: PLR0915
         excel_handler = ExcelHandler()
         input_path = Path(args.input_file)
 
-        # Determine if input is a file or directory
-        all_parsed_cases = []
-        source_filenames = []
-
-        if input_path.is_file():
-            # Process single file
-            parsed_cases, source_name = process_single_file(
-                input_path,
-                columns,
-                args.default_year,
-                args.sheet,
-                args.add_source_column,
-            )
-            all_parsed_cases.extend(parsed_cases)
-            if args.add_source_column:
-                source_filenames.extend([source_name] * len(parsed_cases))
-
-        elif input_path.is_dir():
-            # Process all Excel files in directory
-            excel_files = find_excel_files(input_path)
-
-            if not excel_files:
-                console.print("[yellow]Warning:[/yellow] No Excel files found in directory")
-                return
-
+        # Handle CSV v2 format
+        if hasattr(args, "v2") and args.v2:
             console.print(
-                f"\n[bold cyan]Found {len(excel_files)} Excel file(s) in directory[/bold cyan]\n"
+                Panel(
+                    f"[cyan]Processing CSV v2 format from:[/cyan] {input_path}\n"
+                    f"[cyan]Output file:[/cyan] {args.output_file}",
+                    title="CSV v2 Mode",
+                    border_style="cyan",
+                )
             )
 
-            for excel_file in excel_files:
+            from .csv_io import read_csv_v2
+
+            # Read CSV v2 format
+            import pandas as pd
+
+            df = read_csv_v2(
+                input_path, add_source=args.add_source_column, column_map=columns
+            )
+
+            # Process data
+            processor = CaseProcessor(columns, args.default_year)
+            all_parsed_cases = processor.process_dataframe(df)
+
+            # Convert to DataFrame for output
+            output_df = processor.cases_to_dataframe(all_parsed_cases)
+
+            # Preserve Source File column if added
+            if args.add_source_column and "Source File" in df.columns:
+                output_df.insert(0, "Source File", df["Source File"])
+
+        # Excel format (original logic)
+        else:
+            # Determine if input is a file or directory
+            all_parsed_cases = []
+            source_filenames = []
+
+            if input_path.is_file():
+                # Process single file
                 parsed_cases, source_name = process_single_file(
-                    excel_file,
+                    input_path,
                     columns,
                     args.default_year,
                     args.sheet,
@@ -248,22 +279,46 @@ def main() -> None:  # noqa: PLR0915
                 if args.add_source_column:
                     source_filenames.extend([source_name] * len(parsed_cases))
 
-            console.print(
-                f"\n[bold green]Processed {len(excel_files)} files, "
-                f"total {len(all_parsed_cases)} cases[/bold green]\n"
-            )
+            elif input_path.is_dir():
+                # Process all Excel files in directory
+                excel_files = find_excel_files(input_path)
 
-        if not all_parsed_cases:
-            console.print("[yellow]Warning:[/yellow] No cases to process")
-            return
+                if not excel_files:
+                    console.print("[yellow]Warning:[/yellow] No Excel files found in directory")
+                    return
 
-        # Convert to DataFrame
-        processor = CaseProcessor(columns, args.default_year)
-        output_df = processor.cases_to_dataframe(all_parsed_cases)
+                console.print(
+                    f"\n[bold cyan]Found {len(excel_files)} Excel file(s) in directory[/bold cyan]\n"
+                )
 
-        # Add source file column if requested
-        if args.add_source_column and source_filenames:
-            output_df.insert(0, "Source File", source_filenames)
+                for excel_file in excel_files:
+                    parsed_cases, source_name = process_single_file(
+                        excel_file,
+                        columns,
+                        args.default_year,
+                        args.sheet,
+                        args.add_source_column,
+                    )
+                    all_parsed_cases.extend(parsed_cases)
+                    if args.add_source_column:
+                        source_filenames.extend([source_name] * len(parsed_cases))
+
+                console.print(
+                    f"\n[bold green]Processed {len(excel_files)} files, "
+                    f"total {len(all_parsed_cases)} cases[/bold green]\n"
+                )
+
+            if not all_parsed_cases:
+                console.print("[yellow]Warning:[/yellow] No cases to process")
+                return
+
+            # Convert to DataFrame
+            processor = CaseProcessor(columns, args.default_year)
+            output_df = processor.cases_to_dataframe(all_parsed_cases)
+
+            # Add source file column if requested
+            if args.add_source_column and source_filenames:
+                output_df.insert(0, "Source File", source_filenames)
 
         # Generate validation report if requested
         if args.validation_report:

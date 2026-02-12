@@ -6,7 +6,6 @@ from datetime import date, datetime
 
 import pandas as pd
 import pytest
-from case_parser.enhanced_processor import EnhancedCaseProcessor
 
 from case_parser.domain import (
     AgeCategory,
@@ -16,6 +15,7 @@ from case_parser.domain import (
     ProcedureCategory,
 )
 from case_parser.models import ColumnMap
+from case_parser.processor import CaseProcessor
 
 
 @pytest.fixture
@@ -38,7 +38,7 @@ def default_column_map():
 @pytest.fixture
 def processor(default_column_map):
     """Provide a processor instance for tests."""
-    return EnhancedCaseProcessor(default_column_map, default_year=2025)
+    return CaseProcessor(default_column_map, default_year=2025, use_ml=False)
 
 
 class TestDateParsing:

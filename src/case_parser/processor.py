@@ -30,10 +30,31 @@ logger = logging.getLogger(__name__)
 class CaseProcessor:
     """Enhanced processor using typed intermediate representation."""
 
-    def __init__(self, column_map: ColumnMap, default_year: int = 2025):
-        """Initialize the processor with column mapping and default year."""
+    def __init__(
+        self,
+        column_map: ColumnMap,
+        default_year: int = 2025,
+        use_ml: bool = True,
+        ml_threshold: float = 0.7,
+    ):
+        """Initialize the processor with column mapping and default year.
+
+        Args:
+            column_map: Column mapping configuration
+            default_year: Default year for date parsing
+            use_ml: Whether to use ML-enhanced classification
+            ml_threshold: Minimum ML confidence threshold (0.0-1.0)
+        """
         self.column_map = column_map
         self.default_year = default_year
+
+        # Initialize hybrid classifier
+        if use_ml:
+            self.classifier = get_hybrid_classifier(ml_threshold=ml_threshold)
+        else:
+            from .ml.hybrid import HybridClassifier  # noqa: PLC0415
+
+            self.classifier = HybridClassifier(ml_predictor=None)
 
     def parse_date(self, value: Any) -> tuple[datetime, list[str]]:
         """
