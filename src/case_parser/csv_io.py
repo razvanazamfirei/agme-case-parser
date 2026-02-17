@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import operator
 from pathlib import Path
 
 import pandas as pd

@@ -52,7 +52,7 @@ Examples:
     # Required arguments
     parser.add_argument(
         "input_file",
-        help="Input Excel file path (.xlsx or .xls) or directory containing Excel files",
+        help="Input Excel file path or directory containing Excel files",
     )
     parser.add_argument("output_file", help="Output Excel file path (.xlsx)")
 
