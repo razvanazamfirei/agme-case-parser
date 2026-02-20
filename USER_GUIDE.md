@@ -2,7 +2,7 @@
 
 ## Overview
 
-Case Parser converts raw anesthesia case logs into a standardized format and supports optional ACGME auto-fill via a Chrome extension.
+Case Parser converts raw anesthesia case logs into a standardized format and supports optional ACGME autofill via a Chrome extension.
 
 ## Quick Start (CLI)
 
@@ -44,7 +44,7 @@ If your file uses different headers, override them with `--col-*` options.
 ## Input File Format (Exact)
 
 - File types: `.xlsx`, `.xls`, or `.csv`.
-- First row must be headers. One row per case.
+- The first row must be headers. One row per case.
 - Required columns (exact header names unless overridden):
 - `Date`
 - `Episode ID`
@@ -70,7 +70,7 @@ If your file uses different headers, override them with `--col-*` options.
 case-parser input.xlsx output.xlsx --validation-report validation.txt
 ```
 
-2. Export JSON for other systems.
+2. Export JSON to other systems.
 
 ```bash
 case-parser input.xlsx output.xlsx --json-export cases.json --resident-id "1325527"
@@ -103,8 +103,8 @@ Load the extension in Chrome.
 
 ## Troubleshooting
 
-- If the extension does not appear, confirm Developer mode is on and the unpacked extension points to `chrome-extension/dist`.
-- If fields do not fill, confirm you are on the Case Entry page and the file is `.xlsx`, `.xls`, or `.csv`.
+- If the extension does not appear, confirm Developer mode is on, and the unpacked extension points to `chrome-extension/dist`.
+- If fields do not fill, confirm you are on the Case Entry page, and the file is `.xlsx`, `.xls`, or `.csv`.
 - If columns are missing, run the CLI with `--col-*` overrides and re-upload the standardized output file.
 
 ## Next Steps

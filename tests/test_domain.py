@@ -50,7 +50,7 @@ def test_parsed_case_creation():
     assert case.episode_id == "12345"
     assert case.age_category == AgeCategory.TWELVE_YR_TO_65_YR
     assert case.anesthesia_type == AnesthesiaType.GENERAL
-    assert case.confidence_score == 1.0  # default
+    assert case.confidence_score == pytest.approx(1.0)  # default
 
 
 def test_services_field_validator():
@@ -251,7 +251,7 @@ def test_get_validation_summary():
     assert summary["has_warnings"] is True
     assert summary["warning_count"] == 1
     assert summary["warnings"] == ["Test warning"]
-    assert summary["confidence_score"] == 0.6
+    assert summary["confidence_score"] == pytest.approx(0.6)
     assert summary["is_low_confidence"] is True
     assert "responsible_provider" in summary["missing_fields"]
     assert "procedure" in summary["missing_fields"]

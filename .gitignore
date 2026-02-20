@@ -22,8 +22,15 @@ develop-eggs/
 downloads/
 .installed.cfg
 
-# Training data
+# Training data and model artifacts
 Output-Supervised/
+Output-Individual/
+Output-Residents/
+ml_models/
+ml_training_data/
+
+# Personal/private data
+anesthesia-residents.txt
 
 # Virtual Environments
 .venv/

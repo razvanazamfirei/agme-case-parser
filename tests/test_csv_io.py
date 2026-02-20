@@ -1,7 +1,7 @@
 """Tests for CSV v2 format I/O operations."""
 
-from pathlib import Path
 import pytest
+
 from case_parser.csv_io import discover_csv_pairs
 
 
@@ -44,7 +44,7 @@ def test_discover_csv_pairs_unpaired_files_warns(tmp_path, caplog):
     (tmp_path / "DOCTOR1.CaseList.csv").touch()
     (tmp_path / "DOCTOR2.ProcedureList.csv").touch()
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="No matching CSV pairs found"):
         discover_csv_pairs(tmp_path)
 
     assert "unpaired" in caplog.text.lower()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from case_parser.enhanced_extractors import (
     _calculate_pattern_confidence,
     _extract_with_context,
@@ -67,7 +68,7 @@ class TestHelperFunctions:
         patterns = [r"\bintubat"]
         confidence = _calculate_pattern_confidence(text, patterns)
 
-        assert confidence == 0.5
+        assert confidence == pytest.approx(0.5)
 
     def test_calculate_pattern_confidence_with_supporting(self):
         """Test confidence with supporting patterns."""

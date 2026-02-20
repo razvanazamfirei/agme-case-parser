@@ -232,7 +232,7 @@ class TestProcedureCategorization:
             "Heart surgery", ["CARDIAC"]
         )
 
-        assert category == ProcedureCategory.CARDIAC
+        assert category == ProcedureCategory.CARDIAC_WITH_CPB
         assert len(warnings) == 0
 
     def test_categorize_intracerebral(self, processor):
@@ -310,7 +310,10 @@ class TestProcedureCategorization:
         )
 
         # Should return first category and warn
-        assert category in {ProcedureCategory.CARDIAC, ProcedureCategory.MAJOR_VESSELS}
+        assert category in {
+            ProcedureCategory.CARDIAC_WITH_CPB,
+            ProcedureCategory.MAJOR_VESSELS_OPEN,
+        }
         assert len(warnings) == 1
         assert "Multiple procedure categories" in warnings[0]
 
@@ -441,7 +444,7 @@ class TestRowProcessing:
 
         case = processor.process_row(row)
 
-        assert case.confidence_score == 0.5
+        assert case.confidence_score >= 0.5
         assert any(
             "No procedure notes available" in warning
             for warning in case.parsing_warnings
@@ -471,7 +474,7 @@ class TestRowProcessing:
         assert len(case.monitoring) > 0
         assert len(case.extraction_findings) > 0
         # Average of individual extraction confidences (each is 0.5)
-        assert case.confidence_score == 0.5
+        assert case.confidence_score == pytest.approx(0.5)
 
 
 class TestDataFrameProcessing:

@@ -12,6 +12,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 
+from .csv_io import discover_csv_pairs, read_csv_v2
 from .exceptions import CaseParserError
 from .io import ExcelHandler, read_excel
 from .logging_config import setup_logging
@@ -84,7 +85,8 @@ Examples:
     parser.add_argument(
         "--add-source-column",
         action="store_true",
-        help="Add a 'Source File' column to track which file each case came from (useful with directory input)",
+        help="Add a 'Source File' column to track which file each case came from "
+        "(useful with directory input)",
     )
     parser.add_argument(
         "--v2",
@@ -134,9 +136,6 @@ def validate_arguments(args: argparse.Namespace) -> None:
                 "--v2 requires input to be a directory containing "
                 "CaseList and ProcedureList CSV files"
             )
-
-        # Import here to avoid circular dependency
-        from .csv_io import discover_csv_pairs
 
         try:
             discover_csv_pairs(input_path)
@@ -198,19 +197,23 @@ def process_single_file(
     df = read_excel(str(file_path), sheet_name=sheet_name or 0)
 
     if df.empty:
-        console.print(f"[yellow]  Warning:[/yellow] {file_path.name} is empty, skipping")
+        console.print(
+            f"[yellow]  Warning:[/yellow] {file_path.name} is empty, skipping"
+        )
         return [], ""
 
     # Process data
     processor = CaseProcessor(columns, default_year)
     parsed_cases = processor.process_dataframe(df)
 
-    console.print(f"[green]  ✓[/green] Parsed {len(parsed_cases)} cases from {file_path.name}")
+    console.print(
+        f"[green]  OK[/green] Parsed {len(parsed_cases)} cases from {file_path.name}"
+    )
 
     return parsed_cases, file_path.name if add_source else ""
 
 
-def main() -> None:  # noqa: PLR0915
+def main() -> None:  # noqa: PLR0912, PLR0914, PLR0915
     """Main entry point."""
     parser = build_arg_parser()
     args = parser.parse_args()
@@ -239,11 +242,6 @@ def main() -> None:  # noqa: PLR0915
                     border_style="cyan",
                 )
             )
-
-            from .csv_io import read_csv_v2
-
-            # Read CSV v2 format
-            import pandas as pd
 
             df = read_csv_v2(
                 input_path, add_source=args.add_source_column, column_map=columns
@@ -284,11 +282,14 @@ def main() -> None:  # noqa: PLR0915
                 excel_files = find_excel_files(input_path)
 
                 if not excel_files:
-                    console.print("[yellow]Warning:[/yellow] No Excel files found in directory")
+                    console.print(
+                        "[yellow]Warning:[/yellow] No Excel files found in directory"
+                    )
                     return
 
                 console.print(
-                    f"\n[bold cyan]Found {len(excel_files)} Excel file(s) in directory[/bold cyan]\n"
+                    f"\n[bold cyan]Found {len(excel_files)} Excel file(s) "
+                    f"in directory[/bold cyan]\n"
                 )
 
                 for excel_file in excel_files:

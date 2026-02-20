@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import operator
 from pathlib import Path
 
 import pandas as pd
@@ -55,11 +54,14 @@ def discover_csv_pairs(directory: Path) -> list[tuple[Path, Path]]:
     if not common_prefixes:
         raise ValueError(
             f"No matching CSV pairs found in {directory}. "
-            "Expected files matching pattern: <PREFIX>.CaseList.csv and <PREFIX>.ProcedureList.csv"
+            "Expected files matching pattern: "
+            "<PREFIX>.CaseList.csv and <PREFIX>.ProcedureList.csv"
         )
 
     # Create sorted list of pairs
-    pairs = [(case_files[prefix], proc_files[prefix]) for prefix in sorted(common_prefixes)]
+    pairs = [
+        (case_files[prefix], proc_files[prefix]) for prefix in sorted(common_prefixes)
+    ]
 
     logger.info("Discovered %d CSV pair(s)", len(pairs))
     return pairs
@@ -94,7 +96,7 @@ def _aggregate_procedures(proc_group: pd.DataFrame) -> pd.Series:
 
     # Find most invasive airway
     ranked = [(AIRWAY_RANK.get(a, 0), a) for a in airway_types]
-    most_invasive = max(ranked, key=lambda x: x[0])[1] if ranked else None
+    most_invasive = max(ranked)[1] if ranked else None
 
     return pd.Series({"Airway_Type": most_invasive})
 

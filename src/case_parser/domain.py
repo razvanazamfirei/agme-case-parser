@@ -35,15 +35,12 @@ class ProcedureCategory(StrEnum):
 
     CARDIAC_WITH_CPB = "Cardiac with CPB"
     CARDIAC_WITHOUT_CPB = "Cardiac without CPB"
-    CARDIAC = "Cardiac"  # Fallback when CPB status unknown
     INTRACEREBRAL_ENDOVASCULAR = "Intracerebral (endovascular)"
     INTRACEREBRAL_VASCULAR_OPEN = "Intracerebral Vascular (open)"
     INTRACEREBRAL_NONVASCULAR_OPEN = "Intracerebral Nonvascular (open)"
-    INTRACEREBRAL = "Intracerebral"  # Fallback when approach unknown
     INTRATHORACIC_NON_CARDIAC = "Intrathoracic non-cardiac"
     MAJOR_VESSELS_ENDOVASCULAR = "Procedures on major vessels (endovascular)"
     MAJOR_VESSELS_OPEN = "Procedures on major vessels (open)"
-    MAJOR_VESSELS = "Procedures Major Vessels"  # Fallback when approach unknown
     CESAREAN = "Cesarean del"
     VAGINAL_DELIVERY = "Vaginal del"
     OTHER = "Other (procedure cat)"
@@ -191,7 +188,7 @@ class ParsedCase(BaseModel):
         """Check if this case has any parsing warnings."""
         return len(self.parsing_warnings) > 0
 
-    def is_low_confidence(self, threshold: float = 0.5) -> bool:
+    def is_low_confidence(self, threshold: float = 0.7) -> bool:
         """Check if confidence is below threshold."""
         return self.confidence_score < threshold
 

@@ -8,51 +8,43 @@ converting it to standardized case log format with ACGME web form integration.
 - **Pattern-Based Architecture**: Self-contained extraction modules with clear
   separation of concerns
 - **Domain-Driven Design**: Typed domain models with comprehensive validation
-  and confidence tracking
+  and confidence tracking.
 - **Modern Output**: Professional terminal output with color-coding, tables, and
-  panels using the rich library
+  panels using the rich library.
 - **Flexible Configuration**: Customizable column mappings and processing rules
 - **Comprehensive Extraction**: Airway management, vascular access, specialized
   monitoring
 - **Intelligent Categorization**: Surgery-specific logic for cardiac, vascular,
   intracerebral, and OB/GYN procedures
 - **Validation Reporting**: Detailed validation reports in text, JSON, or Excel
-  format
-- **Web Integration**: Chrome extension for auto-filling ACGME case entry forms
+  format.
+- **Chrome Extension**: Auto-fill ACGME case entry forms (see [Chrome Extension](#chrome-extension))
 - **Debug Tools**: Interactive categorization debugger with rich formatting
 
 ## Requirements
 
 - Python 3.11+
 - `uv` (recommended) or `pip`
-- For the Chrome extension: Node.js 18+ and `bun`
 
 ## Installation
 
 ### Using uv (recommended)
 
 ```bash
-# Install Python dependencies
+# Install dependencies
 uv sync
 
 # Install in development mode
 uv pip install -e .
 
-# Install with dev dependencies
-uv sync --extra dev
+# Install with dev dependencies (ruff, pytest, type stubs)
+uv sync --group dev
 ```
 
 ### Using pip
 
 ```bash
 pip install -e .
-```
-
-### Chrome Extension
-
-```bash
-# Install JavaScript dependencies
-bun install
 ```
 
 ## Usage
@@ -81,22 +73,30 @@ case-parser input.xlsx output.xlsx --verbose
 
 # Generate validation report
 case-parser input.xlsx output.xlsx --validation-report validation.txt
-
-# Export to JSON for ACGME web form integration
-case-parser input.xlsx output.xlsx --json-export cases.json --resident-id "1325527"
 ```
 
-### Web Integration (ACGME Auto-Fill)
+### CSV v2 Format (MPOG Export)
 
-Use the Chrome extension to upload a case log spreadsheet and autofill ACGME case entry forms.
+```bash
+# Process a directory of CaseList/ProcedureList CSV pairs
+case-parser /path/to/csv-dir/ output.xlsx --v2
 
-1. Build the extension from `chrome-extension/` (`bun run build`)
-2. Load `chrome-extension/dist` in `chrome://extensions/` (Developer mode)
-3. Open the ACGME Case Entry page
-4. Upload your Excel file (`.xlsx`, `.xls`, or `.csv`) in the popup
-5. Click Fill (and Submit when ready)
+# With source tracking
+case-parser /path/to/csv-dir/ output.xlsx --v2 --add-source-column
+```
 
-See [chrome-extension/README.md](chrome-extension/README.md) for full setup, packaging, and release details.
+### Batch Processing
+
+```bash
+# Process all residents in Output-Supervised/
+python batch_process.py
+
+# Custom directories
+python batch_process.py --base-dir /path/to/supervised --output-dir /path/to/output
+
+# Sort output files to match a names list
+python sort-logs.py --names-file residents.txt --input-dir Output-Individual
+```
 
 ### Debug Categorization
 
@@ -115,7 +115,7 @@ The debug script displays:
 
 - Rule matching trace with formatted tables
 - Pattern matches and exclusions
-- Final category with color-coded results
+- The final category with color-coded results
 - Warnings and special cases
 
 ### Column Mapping
@@ -125,29 +125,38 @@ command-line options:
 
 - `--col-date`: Date column name (default: "Date")
 - `--col-episode-id`: Episode ID column name (default: "Episode ID")
-- `--col-anesthesiologist`: Anesthesiologist column name (default: "Responsible
-  Provider")
+- `--col-anesthesiologist`: Anesthesiologist column name (default: "Responsible Provider")
 - `--col-age`: Age column name (default: "Age At Encounter")
 - `--col-emergent`: Emergent flag column name (default: "Emergent")
 - `--col-asa`: ASA status column name (default: "ASA")
-- `--col-final-anesthesia-type`: Anesthesia type column name (default: "Final
-  Anesthesia Type")
-- `--col-procedure-notes`: Procedure notes column name (default: "Procedure
-  Notes")
+- `--col-final-anesthesia-type`: Anesthesia type column name (default: "Final Anesthesia Type")
+- `--col-procedure-notes`: Procedure notes column name (default: "Procedure Notes")
 - `--col-procedure`: Procedure column name (default: "Procedure")
 - `--col-services`: Services column name (default: "Services")
 
-### Input File Format (Exact)
+### Input File Format
 
 - File types: `.xlsx`, `.xls`, or `.csv`
 - Header row required; one row per case
-- Required columns (exact names unless overridden): `Date`, `Episode ID`, `Responsible Provider`, `Age At Encounter`, `ASA`, `Final Anesthesia Type`, `Procedure`, `Services`
+- Required columns (exact names unless overridden): `Date`, `Episode ID`,
+  `Responsible Provider`, `Age At Encounter`, `ASA`, `Final Anesthesia Type`,
+  `Procedure`, `Services`
 - Optional columns: `Emergent`, `Procedure Notes`
 - `Services` values must be newline-separated within the cell
-- `Date` should be parseable by pandas (recommended: `MM/DD/YYYY`); missing/unparseable dates fall back to `--default-year` (default 2025, January 1)
+- `Date` should be parseable by pandas (recommended: `MM/DD/YYYY`); missing/unparseable
+  dates fall back to `--default-year` (default 2025, January 1)
 - `Age At Encounter` must be numeric
 
 For a step-by-step walkthrough, see `USER_GUIDE.md`.
+
+## Chrome Extension
+
+The ACGME case entry Chrome extension has been migrated to its own repository:
+
+**[razvanazamfirei/agme-case-parser-extension](https://github.com/razvanazamfirei/agme-case-parser-extension)**
+
+The extension reads the Excel output produced by this tool and autofills ACGME
+case entry forms. See the extension repo for installation and usage instructions.
 
 ## Project Structure
 
@@ -157,17 +166,20 @@ case-parser/
 │   └── case_parser/
 │       ├── __init__.py              # Package initialization
 │       ├── models.py                # Data models and configuration
-│       ├── processors.py            # Core data processing
-│       ├── enhanced_processor.py    # Enhanced processor with validation
-│       ├── extractors.py            # Extraction function exports
 │       ├── domain.py                # Typed domain models
+│       ├── processor.py             # Core data processing
+│       ├── extractors.py            # Extraction function exports
 │       ├── validation.py            # Validation and reporting
-│       ├── io.py                    # File I/O operations
+│       ├── csv_io.py                # CSV v2 format I/O
+│       ├── io.py                    # Excel file I/O
 │       ├── cli.py                   # Command line interface
 │       ├── exceptions.py            # Custom exceptions
 │       ├── logging_config.py        # Logging configuration
-│       ├── web_exporter.py          # JSON export for web integration
-│       ├── acgme_submitter.py       # ACGME submission utilities
+│       ├── ml/                      # ML-enhanced classification
+│       │   ├── features.py          # Feature engineering
+│       │   ├── hybrid.py            # Hybrid rule+ML classifier
+│       │   ├── loader.py            # Model loader
+│       │   └── predictor.py         # ML predictor
 │       └── patterns/                # Pattern-based extraction
 │           ├── __init__.py          # Pattern exports
 │           ├── README.md            # Pattern documentation
@@ -180,24 +192,14 @@ case-parser/
 │           ├── approach_patterns.py # Surgical approach detection
 │           ├── age_patterns.py      # Age range categorization
 │           └── anesthesia_patterns.py       # Anesthesia type mapping
-├── chrome-extension/
-│   ├── manifest.json            # Extension manifest (MV3)
-│   ├── src/
-│   │   ├── content.js           # ACGME page content script
-│   │   └── popup/               # Modular popup application
-│   ├── public/                  # Static assets (icons, xlsx.min.js)
-│   ├── dist/                    # Build output (load this in Chrome)
-│   ├── README.md                # Extension usage and packaging
-│   ├── BUILD.md                 # Build/release process
-│   └── PRIVACY.md               # Privacy statement
-├── tests/                       # Unit tests
-├── debug_categorization.py      # Categorization debugger
-├── main.py                      # Main entry point
-├── pyproject.toml               # Project configuration
-├── package.json                 # JavaScript tooling
-├── biome.json                   # JavaScript linter config
-├── USER_GUIDE.md                # End-user guide
-└── README.md                    # This file
+├── tests/                           # Unit tests
+├── batch_process.py                 # Batch process all residents
+├── sort-logs.py                     # Sort output files by names list
+├── debug_categorization.py          # Categorization debugger
+├── main.py                          # Main entry point
+├── pyproject.toml                   # Project configuration and dependencies
+├── EXTENSION_REPO.md                # Chrome extension migration note
+└── README.md                        # This file
 ```
 
 ## Data Processing
@@ -235,7 +237,7 @@ The tool includes comprehensive validation with modern formatted reports:
 - **Warning Detection**: Identifies missing data, unparseable fields, and low
   confidence extractions
 - **Multiple Formats**: Generate reports as text (with rich formatting), JSON,
-  or Excel
+  or Excel.
 - **Problematic Case Flagging**: Automatically identifies cases needing review
 
 ```bash
@@ -251,42 +253,25 @@ case-parser input.xlsx output.xlsx --validation-report validation.xlsx
 
 ## Development
 
-### Setup Development Environment
+### Setup
 
 ```bash
-# Install with development dependencies
-uv sync --extra dev
+# Install all dependencies including dev tools
+uv sync --group dev
 
-# Install JavaScript dependencies
-bun install
+# Install the package in editable mode
+uv pip install -e .
 ```
 
 ### Code Quality
 
-The project uses several tools for code quality:
-
 ```bash
-# Python formatting and linting
+# Format and lint
 ruff format .
 ruff check --fix .
 
-# JavaScript/CSS linting (Chrome extension)
-bun run lint
-bun run format
-bun run check
-```
-
-### Testing
-
-```bash
-# Test pattern imports
-python -c "from src.case_parser.patterns import *; print('OK')"
-
-# Debug categorization
-python debug_categorization.py "procedure" "service"
-
-# Process a file
-python main.py input.xlsx output.xlsx --validation-report validation.txt
+# Run tests
+uv run pytest
 ```
 
 ### Adding New Patterns
@@ -299,34 +284,12 @@ python main.py input.xlsx output.xlsx --validation-report validation.txt
 
 See `src/case_parser/patterns/README.md` for detailed pattern documentation.
 
-## Chrome Extension Development
-
-```bash
-# Lint and format extension code
-bun run check
-
-# Lint only
-bun run lint
-
-# Format only
-bun run format
-```
-
-Load the extension in Chrome:
-
-1. Navigate to `chrome://extensions/`
-2. Enable "Developer mode"
-3. Click "Load unpacked"
-4. Select the `chrome-extension/dist` directory
-
 ## Documentation
 
-- **USER_GUIDE.md**: End-user guide with CLI and extension walkthroughs
+- **USER_GUIDE.md**: The end-user guide with CLI walkthroughs
+- **EXTENSION_REPO.md**: Chrome extension migration note and integration details.
 - **src/case_parser/patterns/README.md**: Comprehensive pattern documentation
-  with examples and debugging tips
-- **chrome-extension/README.md**: Extension installation, usage, and
-  troubleshooting
-- **chrome-extension/icons/ICONS_README.md**: Icon requirements and generation
+  with examples and debugging tips.
 - **CLAUDE.md**: Detailed architectural guidance for AI-assisted development
 
 ## Error Handling
@@ -350,14 +313,5 @@ When contributing:
 1. Follow the pattern-based architecture
 2. Add business logic to pattern modules, not processors
 3. Use the debug script to test categorization changes
-4. Run linters before committing
+4. Run `ruff format . && ruff check .` before committing
 5. Update relevant documentation
-
-## Support
-
-For issues or questions:
-
-- Check the pattern documentation in `src/case_parser/patterns/README.md`
-- Use the debug script to troubleshoot categorization
-- Review validation reports for data quality issues
-- Check Chrome extension README for web integration issues

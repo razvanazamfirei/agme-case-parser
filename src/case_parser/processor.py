@@ -20,6 +20,8 @@ from .extractors import (
     extract_monitoring,
     extract_vascular_access,
 )
+from .ml import get_hybrid_classifier
+from .ml.hybrid import HybridClassifier
 from .models import OUTPUT_COLUMNS, ColumnMap
 from .patterns.age_patterns import AGE_RANGES
 from .patterns.categorization import categorize_procedure
@@ -52,8 +54,6 @@ class CaseProcessor:
         if use_ml:
             self.classifier = get_hybrid_classifier(ml_threshold=ml_threshold)
         else:
-            from .ml.hybrid import HybridClassifier  # noqa: PLC0415
-
             self.classifier = HybridClassifier(ml_predictor=None)
 
     def parse_date(self, value: Any) -> tuple[datetime, list[str]]:

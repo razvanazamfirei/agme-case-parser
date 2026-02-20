@@ -84,7 +84,7 @@ def categorize_vascular(procedure_text: str) -> ProcedureCategory:
         return ProcedureCategory.MAJOR_VESSELS_ENDOVASCULAR
     if approach == "open":
         return ProcedureCategory.MAJOR_VESSELS_OPEN
-    return ProcedureCategory.MAJOR_VESSELS
+    return ProcedureCategory.MAJOR_VESSELS_OPEN
 
 
 def categorize_intracerebral(procedure_text: str) -> ProcedureCategory:
@@ -115,7 +115,7 @@ def categorize_intracerebral(procedure_text: str) -> ProcedureCategory:
         # Default to vascular if unknown
         return ProcedureCategory.INTRACEREBRAL_VASCULAR_OPEN
 
-    return ProcedureCategory.INTRACEREBRAL
+    return ProcedureCategory.INTRACEREBRAL_NONVASCULAR_OPEN
 
 
 def categorize_obgyn(procedure_text: str) -> ProcedureCategory:
