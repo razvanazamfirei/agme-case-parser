@@ -241,7 +241,7 @@ class TestProcedureCategorization:
             "Brain surgery", ["NEUROSURGERY"]
         )
 
-        assert category == ProcedureCategory.INTRACEREBRAL
+        assert category == ProcedureCategory.INTRACEREBRAL_NONVASCULAR_OPEN
         assert len(warnings) == 0
 
     def test_categorize_intrathoracic(self, processor):
@@ -259,7 +259,7 @@ class TestProcedureCategorization:
             "Vascular surgery", ["VASCULAR"]
         )
 
-        assert category == ProcedureCategory.MAJOR_VESSELS
+        assert category == ProcedureCategory.MAJOR_VESSELS_OPEN
         assert len(warnings) == 0
 
     def test_categorize_cesarean(self, processor):

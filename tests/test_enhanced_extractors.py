@@ -3,20 +3,22 @@
 from __future__ import annotations
 
 import pytest
-from case_parser.enhanced_extractors import (
-    _calculate_pattern_confidence,
-    _extract_with_context,
-    clean_names,
-    extract_airway_management_enhanced,
-    extract_monitoring_enhanced,
-    extract_vascular_access_enhanced,
-)
 
 from case_parser.domain import (
     AirwayManagement,
     ExtractionFinding,
     MonitoringTechnique,
     VascularAccess,
+)
+from case_parser.extractors import clean_names
+from case_parser.patterns import (
+    extract_airway_management,
+    extract_monitoring,
+    extract_vascular_access,
+)
+from case_parser.patterns.extraction_utils import (
+    calculate_pattern_confidence,
+    extract_with_context,
 )
 
 
@@ -27,7 +29,7 @@ class TestHelperFunctions:
         """Test basic context extraction."""
         text = "Patient was intubated using direct laryngoscope"
         patterns = [r"\bintubat(ed|ion|e)?\b"]
-        results = _extract_with_context(text, patterns, context_window=20)
+        results = extract_with_context(text, patterns, context_window=20)
 
         assert len(results) == 1
         matched_text, context, position = results[0]
@@ -39,7 +41,7 @@ class TestHelperFunctions:
         """Test multiple pattern matches."""
         text = "Arterial line placed. Central line also inserted."
         patterns = [r"\barterial\s+line\b", r"\bcentral\s+line\b"]
-        results = _extract_with_context(text, patterns, context_window=30)
+        results = extract_with_context(text, patterns, context_window=30)
 
         assert len(results) == 2
         assert any("arterial" in match[0].lower() for match in results)
@@ -49,7 +51,7 @@ class TestHelperFunctions:
         """Test case-insensitive matching."""
         text = "INTUBATION performed with ETT"
         patterns = [r"\bintubation\b"]
-        results = _extract_with_context(text, patterns)
+        results = extract_with_context(text, patterns)
 
         assert len(results) == 1
         assert "intubation" in results[0][0].lower()
@@ -58,7 +60,7 @@ class TestHelperFunctions:
         """Test with no matches."""
         text = "Standard monitoring applied"
         patterns = [r"\bintubation\b"]
-        results = _extract_with_context(text, patterns)
+        results = extract_with_context(text, patterns)
 
         assert len(results) == 0
 
@@ -66,7 +68,7 @@ class TestHelperFunctions:
         """Test base confidence without supporting or negation patterns."""
         text = "Patient was intubated"
         patterns = [r"\bintubat"]
-        confidence = _calculate_pattern_confidence(text, patterns)
+        confidence = calculate_pattern_confidence(text, patterns)
 
         assert confidence == pytest.approx(0.5)
 
@@ -75,7 +77,7 @@ class TestHelperFunctions:
         text = "Intubation performed with direct laryngoscope and ETT placed"
         primary = [r"\bintubat"]
         supporting = [r"\blaryngoscope\b", r"\bETT\b"]
-        confidence = _calculate_pattern_confidence(text, primary, supporting)
+        confidence = calculate_pattern_confidence(text, primary, supporting)
 
         assert confidence > 0.5
         assert confidence <= 0.9
@@ -85,7 +87,7 @@ class TestHelperFunctions:
         text = "No intubation performed"
         primary = [r"\bintubat"]
         negation = [r"\bno\s+"]
-        confidence = _calculate_pattern_confidence(text, primary, None, negation)
+        confidence = calculate_pattern_confidence(text, primary, None, negation)
 
         assert confidence < 0.5
 
@@ -94,7 +96,7 @@ class TestHelperFunctions:
         text = "Patient intubated with support and more support and even more"
         primary = [r"\bintubat"]
         supporting = [r"\bsupport\b"] * 10  # Many supporting patterns
-        confidence = _calculate_pattern_confidence(text, primary, supporting)
+        confidence = calculate_pattern_confidence(text, primary, supporting)
 
         assert 0.0 <= confidence <= 1.0
 
@@ -134,7 +136,7 @@ class TestAirwayManagementExtraction:
     def test_extract_oral_ett(self):
         """Test oral ETT extraction."""
         notes = "Patient was intubated with oral ETT"
-        airway, findings = extract_airway_management_enhanced(notes)
+        airway, findings = extract_airway_management(notes)
 
         assert AirwayManagement.ORAL_ETT in airway
         assert len(findings) > 0
@@ -143,7 +145,7 @@ class TestAirwayManagementExtraction:
     def test_extract_nasal_ett(self):
         """Test nasal ETT extraction."""
         notes = "Nasal intubation performed successfully"
-        airway, findings = extract_airway_management_enhanced(notes)
+        airway, findings = extract_airway_management(notes)
 
         assert AirwayManagement.NASAL_ETT in airway
         assert any(f.value == AirwayManagement.ORAL_ETT.value for f in findings)
@@ -151,7 +153,7 @@ class TestAirwayManagementExtraction:
     def test_extract_direct_laryngoscope(self):
         """Test direct laryngoscope extraction."""
         notes = "Intubated using direct laryngoscope with Macintosh blade"
-        airway, findings = extract_airway_management_enhanced(notes)
+        airway, findings = extract_airway_management(notes)
 
         assert AirwayManagement.ORAL_ETT in airway
         assert AirwayManagement.DIRECT_LARYNGOSCOPE in airway
@@ -160,7 +162,7 @@ class TestAirwayManagementExtraction:
     def test_extract_video_laryngoscope(self):
         """Test video laryngoscope extraction."""
         notes = "Intubation with GlideScope video laryngoscope"
-        airway, _findings = extract_airway_management_enhanced(notes)
+        airway, _findings = extract_airway_management(notes)
 
         assert AirwayManagement.ORAL_ETT in airway
         assert AirwayManagement.VIDEO_LARYNGOSCOPE in airway
@@ -168,7 +170,7 @@ class TestAirwayManagementExtraction:
     def test_extract_supraglottic_airway(self):
         """Test supraglottic airway extraction."""
         notes = "LMA inserted for airway management"
-        airway, findings = extract_airway_management_enhanced(notes)
+        airway, findings = extract_airway_management(notes)
 
         assert AirwayManagement.SUPRAGLOTTIC_AIRWAY in airway
         assert any(
@@ -178,7 +180,7 @@ class TestAirwayManagementExtraction:
     def test_extract_bronchoscopy(self):
         """Test bronchoscopy extraction."""
         notes = "Fiberoptic bronchoscopy used for intubation"
-        airway, findings = extract_airway_management_enhanced(notes)
+        airway, findings = extract_airway_management(notes)
 
         assert AirwayManagement.FLEXIBLE_BRONCHOSCOPIC in airway
         assert any(
@@ -188,7 +190,7 @@ class TestAirwayManagementExtraction:
     def test_extract_mask_ventilation(self):
         """Test mask ventilation extraction."""
         notes = "Mask ventilation maintained throughout procedure"
-        airway, findings = extract_airway_management_enhanced(notes)
+        airway, findings = extract_airway_management(notes)
 
         assert AirwayManagement.MASK in airway
         assert any(f.value == AirwayManagement.MASK.value for f in findings)
@@ -196,7 +198,7 @@ class TestAirwayManagementExtraction:
     def test_extract_difficult_airway(self):
         """Test difficult airway detection."""
         notes = "Difficult intubation with multiple attempts"
-        airway, findings = extract_airway_management_enhanced(notes)
+        airway, findings = extract_airway_management(notes)
 
         assert AirwayManagement.DIFFICULT_AIRWAY in airway
         assert any(f.value == AirwayManagement.DIFFICULT_AIRWAY.value for f in findings)
@@ -206,7 +208,7 @@ class TestAirwayManagementExtraction:
         notes = (
             "Direct laryngoscope used for oral intubation. Arterial line also placed."
         )
-        airway, _findings = extract_airway_management_enhanced(notes)
+        airway, _findings = extract_airway_management(notes)
 
         assert AirwayManagement.ORAL_ETT in airway
         assert AirwayManagement.DIRECT_LARYNGOSCOPE in airway
@@ -215,7 +217,7 @@ class TestAirwayManagementExtraction:
     def test_extract_no_duplicates(self):
         """Test that duplicate techniques are removed."""
         notes = "Intubation performed. ETT placed. Oral intubation confirmed."
-        airway, _findings = extract_airway_management_enhanced(notes)
+        airway, _findings = extract_airway_management(notes)
 
         # Count occurrences of ORAL_ETT
         oral_ett_count = sum(1 for tech in airway if tech == AirwayManagement.ORAL_ETT)
@@ -223,20 +225,20 @@ class TestAirwayManagementExtraction:
 
     def test_extract_empty_notes(self):
         """Test handling of empty/missing notes."""
-        airway1, findings1 = extract_airway_management_enhanced(None)
+        airway1, findings1 = extract_airway_management(None)
         assert airway1 == []
         assert findings1 == []
 
         import pandas as pd
 
-        airway2, findings2 = extract_airway_management_enhanced(pd.NA)
+        airway2, findings2 = extract_airway_management(pd.NA)
         assert airway2 == []
         assert findings2 == []
 
     def test_extraction_findings_metadata(self):
         """Test that extraction findings contain proper metadata."""
         notes = "Patient intubated with direct laryngoscope"
-        _airway, findings = extract_airway_management_enhanced(notes, "test_field")
+        _airway, findings = extract_airway_management(notes, "test_field")
 
         assert len(findings) > 0
         for finding in findings:
@@ -253,7 +255,7 @@ class TestVascularAccessExtraction:
     def test_extract_arterial_line(self):
         """Test arterial line extraction."""
         notes = "Arterial line placed in radial artery"
-        vascular, findings = extract_vascular_access_enhanced(notes)
+        vascular, findings = extract_vascular_access(notes)
 
         assert VascularAccess.ARTERIAL_CATHETER in vascular
         assert any(f.value == VascularAccess.ARTERIAL_CATHETER.value for f in findings)
@@ -268,13 +270,13 @@ class TestVascularAccessExtraction:
         ]
 
         for note in variations:
-            vascular, _findings = extract_vascular_access_enhanced(note)
+            vascular, _findings = extract_vascular_access(note)
             assert VascularAccess.ARTERIAL_CATHETER in vascular, f"Failed for: {note}"
 
     def test_extract_central_line(self):
         """Test central line extraction."""
         notes = "Central venous catheter placed in IJ"
-        vascular, findings = extract_vascular_access_enhanced(notes)
+        vascular, findings = extract_vascular_access(notes)
 
         assert VascularAccess.CENTRAL_VENOUS_CATHETER in vascular
         assert any(
@@ -291,7 +293,7 @@ class TestVascularAccessExtraction:
         ]
 
         for note in variations:
-            vascular, _findings = extract_vascular_access_enhanced(note)
+            vascular, _findings = extract_vascular_access(note)
             assert VascularAccess.CENTRAL_VENOUS_CATHETER in vascular, (
                 f"Failed for: {note}"
             )
@@ -299,7 +301,7 @@ class TestVascularAccessExtraction:
     def test_extract_pa_catheter(self):
         """Test PA catheter extraction."""
         notes = "Pulmonary artery catheter inserted"
-        vascular, findings = extract_vascular_access_enhanced(notes)
+        vascular, findings = extract_vascular_access(notes)
 
         assert VascularAccess.PULMONARY_ARTERY_CATHETER in vascular
         assert any(
@@ -315,7 +317,7 @@ class TestVascularAccessExtraction:
         ]
 
         for note in variations:
-            vascular, _findings = extract_vascular_access_enhanced(note)
+            vascular, _findings = extract_vascular_access(note)
             assert VascularAccess.PULMONARY_ARTERY_CATHETER in vascular, (
                 f"Failed for: {note}"
             )
@@ -323,7 +325,7 @@ class TestVascularAccessExtraction:
     def test_extract_multiple_access(self):
         """Test extraction of multiple vascular access types."""
         notes = "Arterial line and central venous catheter placed"
-        vascular, _findings = extract_vascular_access_enhanced(notes)
+        vascular, _findings = extract_vascular_access(notes)
 
         assert VascularAccess.ARTERIAL_CATHETER in vascular
         assert VascularAccess.CENTRAL_VENOUS_CATHETER in vascular
@@ -332,7 +334,7 @@ class TestVascularAccessExtraction:
     def test_extract_no_duplicates(self):
         """Test that duplicate access types are removed."""
         notes = "Arterial line placed. A-line confirmed. Art line functioning."
-        vascular, _findings = extract_vascular_access_enhanced(notes)
+        vascular, _findings = extract_vascular_access(notes)
 
         arterial_count = sum(
             1 for access in vascular if access == VascularAccess.ARTERIAL_CATHETER
@@ -341,14 +343,14 @@ class TestVascularAccessExtraction:
 
     def test_extract_empty_notes(self):
         """Test handling of empty/missing notes."""
-        vascular1, findings1 = extract_vascular_access_enhanced(None)
+        vascular1, findings1 = extract_vascular_access(None)
         assert vascular1 == []
         assert findings1 == []
 
     def test_extraction_findings_metadata(self):
         """Test that extraction findings contain proper metadata."""
         notes = "Central line placed"
-        _vascular, findings = extract_vascular_access_enhanced(notes, "test_field")
+        _vascular, findings = extract_vascular_access(notes, "test_field")
 
         assert len(findings) > 0
         for finding in findings:
@@ -363,7 +365,7 @@ class TestMonitoringExtraction:
     def test_extract_tee(self):
         """Test TEE extraction."""
         notes = "TEE performed for cardiac monitoring"
-        monitoring, findings = extract_monitoring_enhanced(notes)
+        monitoring, findings = extract_monitoring(notes)
 
         assert MonitoringTechnique.TEE in monitoring
         assert any(f.value == MonitoringTechnique.TEE.value for f in findings)
@@ -377,13 +379,13 @@ class TestMonitoringExtraction:
         ]
 
         for note in variations:
-            monitoring, _findings = extract_monitoring_enhanced(note)
+            monitoring, _findings = extract_monitoring(note)
             assert MonitoringTechnique.TEE in monitoring, f"Failed for: {note}"
 
     def test_extract_electrophysiologic(self):
         """Test electrophysiologic monitoring extraction."""
         notes = "SSEP and electrophysiologic monitoring used"
-        monitoring, findings = extract_monitoring_enhanced(notes)
+        monitoring, findings = extract_monitoring(notes)
 
         assert MonitoringTechnique.ELECTROPHYSIOLOGIC_MON in monitoring
         assert any(
@@ -401,7 +403,7 @@ class TestMonitoringExtraction:
         ]
 
         for note in variations:
-            monitoring, _findings = extract_monitoring_enhanced(note)
+            monitoring, _findings = extract_monitoring(note)
             assert MonitoringTechnique.ELECTROPHYSIOLOGIC_MON in monitoring, (
                 f"Failed for: {note}"
             )
@@ -409,7 +411,7 @@ class TestMonitoringExtraction:
     def test_extract_csf_drain(self):
         """Test CSF drain extraction."""
         notes = "CSF drain placed for monitoring"
-        monitoring, findings = extract_monitoring_enhanced(notes)
+        monitoring, findings = extract_monitoring(notes)
 
         assert MonitoringTechnique.CSF_DRAIN in monitoring
         assert any(f.value == MonitoringTechnique.CSF_DRAIN.value for f in findings)
@@ -423,13 +425,13 @@ class TestMonitoringExtraction:
         ]
 
         for note in variations:
-            monitoring, _findings = extract_monitoring_enhanced(note)
+            monitoring, _findings = extract_monitoring(note)
             assert MonitoringTechnique.CSF_DRAIN in monitoring, f"Failed for: {note}"
 
     def test_extract_invasive_neuro(self):
         """Test invasive neuro monitoring extraction."""
         notes = "ICP monitor placed for intracranial pressure monitoring"
-        monitoring, findings = extract_monitoring_enhanced(notes)
+        monitoring, findings = extract_monitoring(notes)
 
         assert MonitoringTechnique.INVASIVE_NEURO_MON in monitoring
         assert any(
@@ -445,7 +447,7 @@ class TestMonitoringExtraction:
         ]
 
         for note in variations:
-            monitoring, _findings = extract_monitoring_enhanced(note)
+            monitoring, _findings = extract_monitoring(note)
             assert MonitoringTechnique.INVASIVE_NEURO_MON in monitoring, (
                 f"Failed for: {note}"
             )
@@ -453,7 +455,7 @@ class TestMonitoringExtraction:
     def test_extract_multiple_monitoring(self):
         """Test extraction of multiple monitoring techniques."""
         notes = "TEE and electrophysiologic monitoring used"
-        monitoring, _findings = extract_monitoring_enhanced(notes)
+        monitoring, _findings = extract_monitoring(notes)
 
         assert MonitoringTechnique.TEE in monitoring
         assert MonitoringTechnique.ELECTROPHYSIOLOGIC_MON in monitoring
@@ -462,21 +464,21 @@ class TestMonitoringExtraction:
     def test_extract_no_duplicates(self):
         """Test that duplicate monitoring techniques are removed."""
         notes = "TEE performed. Transesophageal echo used. TEE monitoring confirmed."
-        monitoring, _findings = extract_monitoring_enhanced(notes)
+        monitoring, _findings = extract_monitoring(notes)
 
         tee_count = sum(1 for tech in monitoring if tech == MonitoringTechnique.TEE)
         assert tee_count == 1
 
     def test_extract_empty_notes(self):
         """Test handling of empty/missing notes."""
-        monitoring1, findings1 = extract_monitoring_enhanced(None)
+        monitoring1, findings1 = extract_monitoring(None)
         assert monitoring1 == []
         assert findings1 == []
 
     def test_extraction_findings_metadata(self):
         """Test that extraction findings contain proper metadata."""
         notes = "TEE performed"
-        _monitoring, findings = extract_monitoring_enhanced(notes, "test_field")
+        _monitoring, findings = extract_monitoring(notes, "test_field")
 
         assert len(findings) > 0
         for finding in findings:
@@ -491,7 +493,7 @@ class TestConfidenceScoring:
     def test_high_confidence_with_supporting_evidence(self):
         """Test high confidence when supporting patterns are present."""
         notes = "Patient intubated with direct laryngoscope, ETT secured, tube placement confirmed"
-        _airway, findings = extract_airway_management_enhanced(notes)
+        _airway, findings = extract_airway_management(notes)
 
         # Find the intubation finding
         ett_findings = [
@@ -508,14 +510,14 @@ class TestConfidenceScoring:
         text = "No intubation performed"
         primary = [r"\bintubation\b"]
         negation = [r"\bno\s+"]
-        confidence = _calculate_pattern_confidence(text, primary, None, negation)
+        confidence = calculate_pattern_confidence(text, primary, None, negation)
 
         assert confidence < 0.5
 
     def test_base_confidence_simple_match(self):
         """Test base confidence for simple pattern match."""
         notes = "ETT placed"
-        _airway, findings = extract_airway_management_enhanced(notes)
+        _airway, findings = extract_airway_management(notes)
 
         ett_findings = [
             f for f in findings if f.value == AirwayManagement.ORAL_ETT.value
