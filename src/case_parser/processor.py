@@ -302,7 +302,7 @@ class CaseProcessor:
             raw_date=str(row.get(self.column_map.date))
             if not pd.isna(row.get(self.column_map.date))
             else None,
-            episode_id=str(row.get(self.column_map.episode_id))
+            episode_id=str(row.get(self.column_map.episode_id))[:25]
             if not pd.isna(row.get(self.column_map.episode_id))
             else None,
             raw_age=float(str(row.get(self.column_map.age)))

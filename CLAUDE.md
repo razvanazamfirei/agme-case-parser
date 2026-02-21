@@ -331,7 +331,7 @@ The debug script uses rich formatting to display:
 ## Documentation
 
 - **patterns/README.md**: Comprehensive pattern documentation with examples
-- **EXTENSION_REPO.md**: Chrome extension migration note and link
+- **chrome-extension/README.md**: Chrome extension installation and usage (git submodule)
 
 ## Testing
 

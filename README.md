@@ -151,12 +151,27 @@ For a step-by-step walkthrough, see `USER_GUIDE.md`.
 
 ## Chrome Extension
 
-The ACGME case entry Chrome extension has been migrated to its own repository:
+The ACGME case entry Chrome extension lives in the `chrome-extension/`
+submodule:
 
-**[razvanazamfirei/agme-case-parser-extension](https://github.com/razvanazamfirei/agme-case-parser-extension)**
+**[razvanazamfirei/acgme-case-parser-extension](https://github.com/razvanazamfirei/acgme-case-parser-extension)**
 
-The extension reads the Excel output produced by this tool and autofills ACGME
-case entry forms. See the extension repo for installation and usage instructions.
+The extension reads the Excel output produced by this tool and auto-fills ACGME
+case entry forms.
+
+To clone this repo with the extension included:
+
+```bash
+git clone --recurse-submodules https://github.com/razvanazamfirei/acgme-case-parser.git
+```
+
+If you already cloned without `--recurse-submodules`:
+
+```bash
+git submodule update --init
+```
+
+See `chrome-extension/README.md` for installation and usage instructions.
 
 ## Project Structure
 
@@ -192,13 +207,13 @@ case-parser/
 │           ├── approach_patterns.py # Surgical approach detection
 │           ├── age_patterns.py      # Age range categorization
 │           └── anesthesia_patterns.py       # Anesthesia type mapping
+├── chrome-extension/                # Chrome extension (git submodule)
 ├── tests/                           # Unit tests
 ├── batch_process.py                 # Batch process all residents
 ├── sort-logs.py                     # Sort output files by names list
 ├── debug_categorization.py          # Categorization debugger
 ├── main.py                          # Main entry point
 ├── pyproject.toml                   # Project configuration and dependencies
-├── EXTENSION_REPO.md                # Chrome extension migration note
 └── README.md                        # This file
 ```
 
@@ -286,10 +301,10 @@ See `src/case_parser/patterns/README.md` for detailed pattern documentation.
 
 ## Documentation
 
-- **USER_GUIDE.md**: The end-user guide with CLI walkthroughs
-- **EXTENSION_REPO.md**: Chrome extension migration note and integration details.
+- **USER_GUIDE.md**: End-user guide with CLI walkthroughs
+- **chrome-extension/README.md**: Chrome extension installation and usage
 - **src/case_parser/patterns/README.md**: Comprehensive pattern documentation
-  with examples and debugging tips.
+  with examples and debugging tips
 - **CLAUDE.md**: Detailed architectural guidance for AI-assisted development
 
 ## Error Handling
