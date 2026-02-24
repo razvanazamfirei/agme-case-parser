@@ -338,10 +338,10 @@ def print_summary(output_file: Path, summary: dict[str, Any]) -> None:
     table.add_row("Date range:", summary["date_range"])
     console.print(table)
 
-    if summary.get("empty_cases", 0) > 0:
+    empty_cases = summary.get("empty_cases", 0)
+    if empty_cases > 0:
         console.print(
-            f"  [yellow]Warning:[/yellow] {summary.get('empty_cases', 0)} "
-            "cases have empty Case IDs"
+            f"  [yellow]Warning:[/yellow] {empty_cases} cases have empty Case IDs"
         )
 
     console.print()

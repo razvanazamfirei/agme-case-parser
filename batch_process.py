@@ -74,7 +74,7 @@ def process_resident(
 
     joined, orphans = join_case_and_procedures(case_df, proc_df)
     if not orphans.empty:
-        logger.info("%s: %d orphan procedure(s) skipped", name, len(orphans))
+        console.print(f"  [yellow]Note:[/yellow] {name}: {len(orphans)} orphan procedure(s) skipped")
     if joined.empty:
         return 0
 
