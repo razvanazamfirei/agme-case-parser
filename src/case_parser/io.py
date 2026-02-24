@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import operator
 from pathlib import Path
 
 import pandas as pd
@@ -173,7 +174,7 @@ def select_primary_technique(proc_group: pd.DataFrame) -> pd.Series:
     if techniques.empty:
         return pd.Series({"Airway_Type": None})
     ranked = [(TECHNIQUE_RANK.get(t, 0), t) for t in techniques]
-    return pd.Series({"Airway_Type": max(ranked)[1]})
+    return pd.Series({"Airway_Type": max(ranked, key=operator.itemgetter(0))[1]})
 
 
 def join_case_and_procedures(
@@ -199,10 +200,9 @@ def join_case_and_procedures(
             logger.info(
                 "Found %d orphan procedure(s) with no matching case", len(orphan_procs)
             )
-
-    if not proc_df.empty:
+        matched_procs = proc_df[~orphan_mask]
         proc_agg = (
-            proc_df.groupby("MPOG_Case_ID")
+            matched_procs.groupby("MPOG_Case_ID")
             .apply(select_primary_technique)
             .reset_index()
         )
@@ -288,6 +288,16 @@ class CsvHandler:
 
         # CSV v2 has no Services column — derive from procedure text during processing.
         result[column_map.services] = ""
+
+        # Ensure all standard columns exist so downstream consumers have a
+        # consistent schema.
+        for col in [
+            column_map.anesthesiologist,
+            column_map.procedure_notes,
+            column_map.emergent,
+        ]:
+            if col not in result.columns:
+                result[col] = pd.NA
 
         logger.info("Mapped CSV columns to standard format")
         return result

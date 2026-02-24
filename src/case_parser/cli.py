@@ -274,10 +274,8 @@ def save_validation_report(cases: list[ParsedCase], report_path: Path) -> None:
     report = ValidationReport(cases)
     report.save_report(report_path, output_format=format_type)
 
-    console.print(
-        f"\n[green]Validation report saved to:[/green] {report_path}",
-        Panel("[bold]Validation Summary[/bold]", border_style="cyan"),
-    )
+    console.print(f"\n[green]Validation report saved to:[/green] {report_path}")
+    console.print(Panel("[bold]Validation Summary[/bold]", border_style="cyan"))
     print_validation_summary(report.get_summary())
 
 
@@ -318,7 +316,9 @@ def get_output_summary(df: pd.DataFrame) -> dict[str, Any]:
             "total_cases": len(df),
             "date_range": date_range,
             "columns": list(df.columns),
-            "empty_cases": (not df["Case ID"].fillna("").astype(str).str.strip()).sum(),
+            "empty_cases": (
+                df["Case ID"].fillna("").astype(str).str.strip().eq("").sum()
+            ),
             "missing_dates": df["Case Date"].isna().sum(),
         }
     except Exception as e:
@@ -338,10 +338,10 @@ def print_summary(output_file: Path, summary: dict[str, Any]) -> None:
     table.add_row("Date range:", summary["date_range"])
     console.print(table)
 
-    if summary["empty_cases"] > 0:
+    empty_cases = summary.get("empty_cases", 0)
+    if empty_cases > 0:
         console.print(
-            f"  [yellow]Warning:[/yellow] {summary['empty_cases']} "
-            "cases have empty Case IDs"
+            f"  [yellow]Warning:[/yellow] {empty_cases} cases have empty Case IDs"
         )
 
     console.print()
