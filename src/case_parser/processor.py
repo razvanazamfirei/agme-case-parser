@@ -24,6 +24,10 @@ from .ml import get_hybrid_classifier
 from .ml.hybrid import HybridClassifier
 from .models import OUTPUT_COLUMNS, ColumnMap
 from .patterns.age_patterns import AGE_RANGES
+from .patterns.anesthesia_patterns import (
+    ANESTHESIA_MAPPING,
+    MAC_WITHOUT_AIRWAY_PROCEDURE_KEYWORDS,
+)
 from .patterns.categorization import categorize_procedure
 
 logger = logging.getLogger(__name__)
@@ -152,23 +156,23 @@ class CaseProcessor:
 
         input_str = str(anesthesia_input).strip().upper()
 
-        # Map to enum
-        type_map = {
-            "CSE": AnesthesiaType.CSE,
-            "EPIDURAL": AnesthesiaType.EPIDURAL,
-            "SPINAL": AnesthesiaType.SPINAL,
-            "BLOCK": AnesthesiaType.PERIPHERAL_NERVE_BLOCK,
-            "PNB": AnesthesiaType.PERIPHERAL_NERVE_BLOCK,
+        # Convert standardized string category from patterns file to enum.
+        category_to_enum = {
+            "GA": AnesthesiaType.GENERAL,
             "MAC": AnesthesiaType.MAC,
-            "SEDATION": AnesthesiaType.MAC,
-            "GENERAL": AnesthesiaType.GENERAL,
-            "ENDOTRACHEAL": AnesthesiaType.GENERAL,
+            "Spinal": AnesthesiaType.SPINAL,
+            "Epidural": AnesthesiaType.EPIDURAL,
+            "CSE": AnesthesiaType.CSE,
         }
 
-        # Return first matching anesthesia type
-        for keyword, anesthesia_type in type_map.items():
+        # Return first matching anesthesia type from pattern definitions.
+        for keyword, category in ANESTHESIA_MAPPING.items():
             if keyword in input_str:
-                return anesthesia_type, warnings
+                mapped = category_to_enum.get(category)
+                if mapped is not None:
+                    return mapped, warnings
+                warnings.append(f"Unsupported anesthesia mapping value: {category}")
+                return None, warnings
 
         # Unrecognized type
         warnings.append(f"Unrecognized anesthesia type: {anesthesia_input}")
@@ -196,7 +200,58 @@ class CaseProcessor:
             return False
         return str(value).strip().upper() in {"E", "Y", "YES", "TRUE", "1"}
 
-    def process_row(self, row: pd.Series) -> ParsedCase:  # noqa: PLR0914, PLR0915
+    @staticmethod
+    def _infer_anesthesia_type(
+        anesthesia_type: AnesthesiaType | None,
+        airway_mgmt: list,
+        procedure_text: Any,
+        procedure_category: ProcedureCategory,
+    ) -> tuple[AnesthesiaType | None, list[str]]:
+        """Infer anesthesia type from context clues when not directly mapped."""
+        if anesthesia_type is not None:
+            return anesthesia_type, []
+
+        if airway_mgmt:
+            return (
+                AnesthesiaType.GENERAL,
+                ["Inferred general anesthesia from airway management findings"],
+            )
+
+        procedure_upper = (
+            "" if pd.isna(procedure_text) else str(procedure_text).upper()
+        )
+        if any(
+            keyword in procedure_upper
+            for keyword in MAC_WITHOUT_AIRWAY_PROCEDURE_KEYWORDS
+        ):
+            return (
+                AnesthesiaType.MAC,
+                ["Inferred MAC from procedure type without airway documentation"],
+            )
+
+        if procedure_category in {
+            ProcedureCategory.CESAREAN,
+            ProcedureCategory.VAGINAL_DELIVERY,
+        }:
+            return None, ["Left anesthesia type blank for obstetric procedure category"]
+
+        return (
+            AnesthesiaType.GENERAL,
+            ["Defaulted anesthesia type to GA for non-obstetric case"],
+        )
+
+    @staticmethod
+    def _calculate_confidence(
+        confidence_scores: list[float], notes: Any
+    ) -> tuple[float, list[str]]:
+        """Calculate overall extraction confidence from per-finding scores."""
+        if confidence_scores:
+            return sum(confidence_scores) / len(confidence_scores), []
+        if pd.isna(notes) or not str(notes).strip():
+            return 0.7, ["No procedure notes available for extraction"]
+        return 0.9, []
+
+    def process_row(self, row: pd.Series) -> ParsedCase:  # noqa: PLR0914
         """
         Process a single row into typed ParsedCase.
 
@@ -235,10 +290,7 @@ class CaseProcessor:
         # Parse services (handle multiline)
         raw_services = row.get(self.column_map.services)
         services = []
-        # Handle None/NaN and ensure newline-separated values are split
-        is_none = raw_services is None
-        is_nan = isinstance(raw_services, float) and pd.isna(raw_services)
-        if not (is_none or is_nan):
+        if not (raw_services is None or pd.isna(raw_services)):
             services = [s.strip() for s in str(raw_services).split("\n") if s.strip()]
 
         # Determine procedure category
@@ -256,6 +308,11 @@ class CaseProcessor:
         if airway_findings:
             confidence_scores.extend([f.confidence for f in airway_findings])
 
+        anesthesia_type, infer_warnings = self._infer_anesthesia_type(
+            anesthesia_type, airway_mgmt, procedure_text, procedure_category
+        )
+        all_warnings.extend(infer_warnings)
+
         vascular, vascular_findings = extract_vascular_access(notes)
         all_findings.extend(vascular_findings)
         if vascular_findings:
@@ -272,26 +329,19 @@ class CaseProcessor:
             monitoring_proc, monitoring_proc_findings = extract_monitoring(
                 procedure_text, source_field="procedure"
             )
-            # Merge with existing monitoring, avoiding duplicates
             for mon in monitoring_proc:
                 if mon not in monitoring:
                     monitoring.append(mon)
             all_findings.extend(monitoring_proc_findings)
             if monitoring_proc_findings:
-                proc_confidence = [f.confidence for f in monitoring_proc_findings]
-                confidence_scores.extend(proc_confidence)
+                confidence_scores.extend(
+                    [f.confidence for f in monitoring_proc_findings]
+                )
 
-        # Calculate overall confidence
-        if confidence_scores:
-            overall_confidence = sum(confidence_scores) / len(confidence_scores)
-        # If no extractions, confidence depends on whether notes exist
-        elif pd.isna(notes) or not str(notes).strip():
-            overall_confidence = 0.7  # Missing notes (but not necessarily problematic)
-            all_warnings.append("No procedure notes available for extraction")
-        else:
-            overall_confidence = (
-                0.9  # Notes present but no complex extractions (routine case)
-            )
+        overall_confidence, conf_warnings = self._calculate_confidence(
+            confidence_scores, notes
+        )
+        all_warnings.extend(conf_warnings)
 
         # Clean provider name
         provider = row.get(self.column_map.anesthesiologist)

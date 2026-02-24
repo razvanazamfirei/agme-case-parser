@@ -18,8 +18,11 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from src.case_parser.csv_io import join_case_and_procedures, map_csv_to_standard_columns
-from src.case_parser.io import ExcelHandler
+from src.case_parser.io import (
+    CsvHandler,
+    ExcelHandler,
+    join_case_and_procedures,
+)
 from src.case_parser.models import ColumnMap
 from src.case_parser.processor import CaseProcessor
 
@@ -68,11 +71,11 @@ def process_resident(
     case_df = pd.read_csv(case_file)
     proc_df = pd.read_csv(proc_file)
 
-    joined = join_case_and_procedures(case_df, proc_df)
+    joined, _ = join_case_and_procedures(case_df, proc_df)
     if joined.empty:
         return 0
 
-    df = map_csv_to_standard_columns(joined, config.columns)
+    df = CsvHandler(config.columns).normalize_columns(joined)
 
     processor = CaseProcessor(config.columns, default_year=2025, use_ml=True)
     parsed_cases = processor.process_dataframe(df)

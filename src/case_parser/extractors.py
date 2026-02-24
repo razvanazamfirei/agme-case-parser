@@ -25,6 +25,7 @@ from .patterns import (
 __all__ = [
     "clean_names",
     "extract_airway_management",
+    "extract_attending",
     "extract_monitoring",
     "extract_vascular_access",
 ]
@@ -48,9 +49,22 @@ def clean_names(name: str) -> str:
     """
     if pd.isna(name):
         return ""
-    name = str(name).strip()
+    # Take only the first attending if multiple are listed
+    name = str(name).split(";")[0].strip()
     # Remove titles
     name = re.sub(r"\b(MD|DO|PhD|CRNA|RN)\b", "", name, flags=re.IGNORECASE).strip()
     # Remove trailing commas and extra whitespace
     name = re.sub(r",\s*$", "", name).strip()
     return re.sub(r"\s+", " ", name)
+
+
+def extract_attending(value: str) -> str:
+    """Clean an attending name by removing timestamps and extra entries.
+
+    Input format: "DOE, JOHN@2023-01-01 08:00:00" or semicolon-separated list.
+    Returns the first name with the timestamp stripped.
+    """
+    if pd.isna(value):
+        return ""
+    first_part = str(value).split(";")[0]
+    return first_part.split("@")[0].strip()

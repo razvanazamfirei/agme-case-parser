@@ -145,6 +145,53 @@ def categorize_obgyn(procedure_text: str) -> ProcedureCategory:
     return ProcedureCategory.OTHER
 
 
+def _match_services_to_categories(
+    services: list[str], procedure_text: str
+) -> list[ProcedureCategory]:
+    """Match services against procedure rules and return matched categories."""
+    categories = []
+    for service in services:
+        service_upper = service.upper()
+
+        for rule in PROCEDURE_RULES:
+            if not any(keyword in service_upper for keyword in rule.keywords):
+                continue
+            if rule.exclude_keywords and any(
+                excl in service_upper or excl in procedure_text
+                for excl in rule.exclude_keywords
+            ):
+                continue
+            category = _apply_rule_category(rule.category, procedure_text)
+            if category not in categories:
+                categories.append(category)
+            break
+
+        if any(keyword in service_upper for keyword in ("GYN", "OB", "OBSTET")):
+            obgyn_category = categorize_obgyn(procedure_text)
+            if obgyn_category not in categories:
+                categories.append(obgyn_category)
+
+    return categories
+
+
+def _fallback_categories_from_text(procedure_text: str) -> list[ProcedureCategory]:
+    """Infer categories directly from procedure text when services are empty."""
+    for rule in PROCEDURE_RULES:
+        if not any(keyword in procedure_text for keyword in rule.keywords):
+            continue
+        if rule.exclude_keywords and any(
+            excl in procedure_text for excl in rule.exclude_keywords
+        ):
+            continue
+        return [_apply_rule_category(rule.category, procedure_text)]
+
+    obgyn_category = categorize_obgyn(procedure_text)
+    if obgyn_category != ProcedureCategory.OTHER:
+        return [obgyn_category]
+
+    return []
+
+
 def categorize_procedure(
     procedure: str | None, services: list[str]
 ) -> tuple[ProcedureCategory, list[str]]:
@@ -165,67 +212,18 @@ def categorize_procedure(
         Tuple of (ProcedureCategory, warnings_list)
     """
     warnings = []
-    categories = []
-
     procedure_text = "" if pd.isna(procedure) else str(procedure).upper()
 
-    # Check each service against rules
-    for service in services:
-        service_upper = service.upper()
+    categories = _match_services_to_categories(services, procedure_text)
 
-        # Match against procedure rules
-        for rule in PROCEDURE_RULES:
-            # Check if any keyword matches
-            if not any(keyword in service_upper for keyword in rule.keywords):
-                continue
-
-            # Check exclusions
-            if rule.exclude_keywords and any(
-                excl in service_upper or excl in procedure_text
-                for excl in rule.exclude_keywords
-            ):
-                continue
-
-            # Apply surgery-specific categorization
-            category = _apply_rule_category(rule.category, procedure_text)
-
-            if category not in categories:
-                categories.append(category)
-            break
-
-        # Special OB/GYN handling
-        if any(keyword in service_upper for keyword in ("GYN", "OB", "OBSTET")):
-            obgyn_category = categorize_obgyn(procedure_text)
-            if obgyn_category not in categories:
-                categories.append(obgyn_category)
-
-    # Fallback: infer category directly from procedure text when services are missing
     if not categories and procedure_text:
-        for rule in PROCEDURE_RULES:
-            if not any(keyword in procedure_text for keyword in rule.keywords):
-                continue
+        categories = _fallback_categories_from_text(procedure_text)
 
-            if rule.exclude_keywords and any(
-                excl in procedure_text for excl in rule.exclude_keywords
-            ):
-                continue
-
-            categories.append(_apply_rule_category(rule.category, procedure_text))
-            break
-
-    # Additional fallback for OB/GYN descriptors directly in procedure text
-    if not categories and procedure_text:
-        obgyn_category = categorize_obgyn(procedure_text)
-        if obgyn_category != ProcedureCategory.OTHER:
-            categories.append(obgyn_category)
-
-    # Fallback: Check for labor epidural even without OB service
     if (
         not categories or categories == [ProcedureCategory.OTHER]
     ) and "LABOR EPIDURAL" in procedure_text:
         categories = [ProcedureCategory.VAGINAL_DELIVERY]
 
-    # Handle multiple categories
     if len(categories) > 1:
         warnings.append(
             f"Multiple procedure categories detected for services {services}: "

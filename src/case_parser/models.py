@@ -28,6 +28,18 @@ class ColumnMap:
     services: str = "Services"
 
 
+# Invasiveness ranking for MPOG ProcedureName values (higher = more invasive/complex).
+# Used to select the primary anesthesia technique when a case has multiple procedures.
+TECHNIQUE_RANK: dict[str, int] = {
+    "Intubation complex": 6,
+    "Intubation routine": 5,
+    "Spinal": 4,
+    "Epidural": 3,
+    "LMA": 2,
+    "Peripheral nerve block": 1,
+}
+
+
 # Output column order
 OUTPUT_COLUMNS = [
     "Case ID",

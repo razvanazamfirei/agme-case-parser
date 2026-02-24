@@ -80,9 +80,6 @@ case-parser input.xlsx output.xlsx --validation-report validation.txt
 ```bash
 # Process a directory of CaseList/ProcedureList CSV pairs
 case-parser /path/to/csv-dir/ output.xlsx --v2
-
-# With source tracking
-case-parser /path/to/csv-dir/ output.xlsx --v2 --add-source-column
 ```
 
 ### Batch Processing
