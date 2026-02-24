@@ -71,7 +71,13 @@ def test_normalize_csv_columns_populates_procedure_notes_from_airway_type():
     )
     column_map = ColumnMap()
 
+<<<<<<< HEAD
     result = CsvHandler(column_map).normalize_columns(csv_df)
+||||||| parent of 8cb903d (refactor: consolidate csv_io into io.py and introduce CsvHandler class)
+    result = map_csv_to_standard_columns(csv_df, column_map)
+=======
+    result = CsvHandler(column_map)._normalize_columns(csv_df)
+>>>>>>> 8cb903d (refactor: consolidate csv_io into io.py and introduce CsvHandler class)
 
     assert result.loc[0, column_map.final_anesthesia_type] == "Intubation routine"
     assert result.loc[0, column_map.procedure_notes] == "Intubation routine"
@@ -128,7 +134,12 @@ def test_join_with_empty_proc_df():
 
 # --- normalize_orphan_columns ---
 
+<<<<<<< HEAD
 
+||||||| parent of 8cb903d (refactor: consolidate csv_io into io.py and introduce CsvHandler class)
+def test_map_orphan_procedures_maps_required_columns():
+=======
+>>>>>>> 8cb903d (refactor: consolidate csv_io into io.py and introduce CsvHandler class)
 def test_normalize_orphan_columns_maps_required_columns():
     column_map = ColumnMap()
     orphan_df = _make_proc_df(
@@ -136,7 +147,13 @@ def test_normalize_orphan_columns_maps_required_columns():
         ("ORPHAN-2", "Peripheral nerve block"),
     )
 
+<<<<<<< HEAD
     result = CsvHandler(column_map).normalize_orphan_columns(orphan_df)
+||||||| parent of 8cb903d (refactor: consolidate csv_io into io.py and introduce CsvHandler class)
+    result = map_orphan_procedures(orphan_df, column_map)
+=======
+    result = CsvHandler(column_map)._normalize_orphan_columns(orphan_df)
+>>>>>>> 8cb903d (refactor: consolidate csv_io into io.py and introduce CsvHandler class)
 
     assert list(result[column_map.episode_id]) == ["ORPHAN-1", "ORPHAN-2"]
     assert list(result[column_map.procedure]) == [
@@ -157,7 +174,13 @@ def test_normalize_orphan_columns_fills_na_for_demographics():
     column_map = ColumnMap()
     orphan_df = _make_proc_df(("ORPHAN-1", "Labor Epidural"))
 
+<<<<<<< HEAD
     result = CsvHandler(column_map).normalize_orphan_columns(orphan_df)
+||||||| parent of 8cb903d (refactor: consolidate csv_io into io.py and introduce CsvHandler class)
+    result = map_orphan_procedures(orphan_df, column_map)
+=======
+    result = CsvHandler(column_map)._normalize_orphan_columns(orphan_df)
+>>>>>>> 8cb903d (refactor: consolidate csv_io into io.py and introduce CsvHandler class)
 
     assert pd.isna(result.loc[0, column_map.date])
     assert pd.isna(result.loc[0, column_map.age])

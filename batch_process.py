@@ -17,12 +17,22 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
+<<<<<<< HEAD
 
 from src.case_parser.io import (
     CsvHandler,
     ExcelHandler,
     join_case_and_procedures,
 )
+||||||| parent of 8cb903d (refactor: consolidate csv_io into io.py and introduce CsvHandler class)
+
+from src.case_parser.csv_io import join_case_and_procedures, map_csv_to_standard_columns
+from src.case_parser.io import ExcelHandler
+=======
+from src.case_parser.csv_io import join_case_and_procedures, map_csv_to_standard_columns
+
+from src.case_parser.io import ExcelHandler
+>>>>>>> 8cb903d (refactor: consolidate csv_io into io.py and introduce CsvHandler class)
 from src.case_parser.models import ColumnMap
 from src.case_parser.processor import CaseProcessor
 

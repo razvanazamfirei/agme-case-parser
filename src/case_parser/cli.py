@@ -318,7 +318,13 @@ def get_output_summary(df: pd.DataFrame) -> dict[str, Any]:
             "total_cases": len(df),
             "date_range": date_range,
             "columns": list(df.columns),
+<<<<<<< HEAD
             "empty_cases": (not df["Case ID"].fillna("").astype(str).str.strip()).sum(),
+||||||| parent of 8cb903d (refactor: consolidate csv_io into io.py and introduce CsvHandler class)
+def main() -> None:  # noqa: PLR0912, PLR0914, PLR0915
+=======
+            "empty_cases": df["Case ID"].isna().sum(),
+>>>>>>> 8cb903d (refactor: consolidate csv_io into io.py and introduce CsvHandler class)
             "missing_dates": df["Case Date"].isna().sum(),
         }
     except Exception as e:
