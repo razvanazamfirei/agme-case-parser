@@ -17,8 +17,8 @@ from rich.progress import (
     TextColumn,
     TimeElapsedColumn,
 )
-
 from src.case_parser.csv_io import join_case_and_procedures, map_csv_to_standard_columns
+
 from src.case_parser.io import ExcelHandler
 from src.case_parser.models import ColumnMap
 from src.case_parser.processor import CaseProcessor

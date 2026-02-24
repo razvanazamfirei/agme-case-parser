@@ -163,6 +163,12 @@ class TestAnesthesiaTypeMapping:
             anesthesia_type, _warnings = processor.map_anesthesia_type(variation)
             assert anesthesia_type == AnesthesiaType.GENERAL, f"Failed for: {variation}"
 
+    def test_map_airway_descriptors_as_general_anesthesia(self, processor):
+        """Airway descriptors from CSV v2 should map to GA."""
+        for variation in ["Intubation routine", "Intubation complex", "LMA"]:
+            anesthesia_type, _warnings = processor.map_anesthesia_type(variation)
+            assert anesthesia_type == AnesthesiaType.GENERAL, f"Failed for: {variation}"
+
     def test_map_mac(self, processor):
         """Test mapping MAC."""
         anesthesia_type, warnings = processor.map_anesthesia_type("MAC")
@@ -198,13 +204,13 @@ class TestAnesthesiaTypeMapping:
         assert anesthesia_type == AnesthesiaType.CSE
         assert len(warnings) == 0
 
-    def test_map_peripheral_nerve_block(self, processor):
-        """Test mapping peripheral nerve block."""
-        for variation in ["Block", "PNB"]:
-            anesthesia_type, _warnings = processor.map_anesthesia_type(variation)
-            assert anesthesia_type == AnesthesiaType.PERIPHERAL_NERVE_BLOCK, (
-                f"Failed for: {variation}"
-            )
+    def test_map_peripheral_nerve_block_not_mapped_from_anesthesia_field(self, processor):
+        """Peripheral nerve block presence should not drive anesthesia type."""
+        for variation in ["Block", "PNB", "Peripheral nerve block"]:
+            anesthesia_type, warnings = processor.map_anesthesia_type(variation)
+            assert anesthesia_type is None, f"Unexpected mapping for: {variation}"
+            assert len(warnings) == 1
+            assert "Unrecognized anesthesia type" in warnings[0]
 
     def test_map_missing_anesthesia_type(self, processor):
         """Test handling of missing anesthesia type."""
@@ -324,6 +330,24 @@ class TestProcedureCategorization:
         )
 
         assert category == ProcedureCategory.OTHER
+        assert len(warnings) == 0
+
+    def test_categorize_from_procedure_text_when_services_missing(self, processor):
+        """Procedure text fallback should work when services are empty (CSV v2)."""
+        category, warnings = processor.determine_procedure_category(
+            "ANGIOGRAPHY EXTREMITY UNILATERAL", []
+        )
+
+        assert category == ProcedureCategory.MAJOR_VESSELS_ENDOVASCULAR
+        assert len(warnings) == 0
+
+    def test_categorize_cesarean_without_services(self, processor):
+        """Cesarean should still classify even if service metadata is absent."""
+        category, warnings = processor.determine_procedure_category(
+            "CESAREAN DELIVERY ONLY", []
+        )
+
+        assert category == ProcedureCategory.CESAREAN
         assert len(warnings) == 0
 
 
@@ -475,6 +499,218 @@ class TestRowProcessing:
         assert len(case.extraction_findings) > 0
         # Average of individual extraction confidences (each is 0.5)
         assert case.confidence_score == pytest.approx(0.5)
+
+    def test_process_row_infers_general_from_airway_notes(
+        self, processor, default_column_map
+    ):
+        """When airway is documented but anesthesia type is missing, infer GA."""
+        row = pd.Series(
+            {
+                "Date": "08/27/2025",
+                "Episode ID": "12345",
+                "Anesthesiologist": "Dr. Smith",
+                "Age": 45.0,
+                "ASA": "2",
+                "Emergent": "N",
+                "Anesthesia Type": None,
+                "Procedure": "Surgery",
+                "Services": "GENERAL",
+                "Procedure Notes": "LMA inserted for airway management",
+            }
+        )
+
+        case = processor.process_row(row)
+
+        assert case.anesthesia_type == AnesthesiaType.GENERAL
+        assert AirwayManagement.SUPRAGLOTTIC_AIRWAY in case.airway_management
+        assert any(
+            "Inferred general anesthesia from airway management findings" in warning
+            for warning in case.parsing_warnings
+        )
+
+    def test_process_row_infers_mac_from_selected_procedures_without_airway(
+        self, processor, default_column_map
+    ):
+        """Selected procedure names should infer MAC when airway is not documented."""
+        procedures = [
+            "AMPUTATION METATARSAL",
+            "COLONOSCOPY",
+            "EGD FLEXIBLE",
+            "CYSTO",
+            "PROSTATE NEEDLE BIOPSY",
+            "SIGMOIDOSCOPY",
+            "INDUCED ABORTION DILATION",
+            "MECHANICAL THROMBECTOMY",
+        ]
+
+        for procedure in procedures:
+            row = pd.Series(
+                {
+                    "Date": "08/27/2025",
+                    "Episode ID": "12345",
+                    "Anesthesiologist": "Dr. Smith",
+                    "Age": 45.0,
+                    "ASA": "2",
+                    "Emergent": "N",
+                    "Anesthesia Type": None,
+                    "Procedure": procedure,
+                    "Services": "GENERAL",
+                    "Procedure Notes": None,
+                }
+            )
+
+            case = processor.process_row(row)
+
+            assert case.anesthesia_type == AnesthesiaType.MAC, (
+                f"Expected MAC inference for {procedure}"
+            )
+            assert len(case.airway_management) == 0
+            assert any(
+                "Inferred MAC from procedure type without airway documentation"
+                in warning
+                for warning in case.parsing_warnings
+            )
+
+    def test_process_row_does_not_infer_mac_when_airway_documented(
+        self, processor, default_column_map
+    ):
+        """Airway documentation should take precedence over MAC procedure inference."""
+        row = pd.Series(
+            {
+                "Date": "08/27/2025",
+                "Episode ID": "12345",
+                "Anesthesiologist": "Dr. Smith",
+                "Age": 45.0,
+                "ASA": "2",
+                "Emergent": "N",
+                "Anesthesia Type": None,
+                "Procedure": "COLONOSCOPY",
+                "Services": "GENERAL",
+                "Procedure Notes": "Patient intubated with oral ETT",
+            }
+        )
+
+        case = processor.process_row(row)
+
+        assert case.anesthesia_type == AnesthesiaType.GENERAL
+        assert AirwayManagement.ORAL_ETT in case.airway_management
+        assert not any(
+            "Inferred MAC from procedure type without airway documentation"
+            in warning
+            for warning in case.parsing_warnings
+        )
+
+    def test_process_row_block_procedure_with_airway_stays_general(
+        self, processor, default_column_map
+    ):
+        """Documented airway should still infer GA regardless of block text."""
+        row = pd.Series(
+            {
+                "Date": "08/27/2025",
+                "Episode ID": "12345",
+                "Anesthesiologist": "Dr. Smith",
+                "Age": 45.0,
+                "ASA": "2",
+                "Emergent": "N",
+                "Anesthesia Type": None,
+                "Procedure": "PERIPHERAL NERVE BLOCK",
+                "Services": "ORTHO",
+                "Procedure Notes": "Patient intubated with oral ETT",
+            }
+        )
+
+        case = processor.process_row(row)
+
+        assert case.anesthesia_type == AnesthesiaType.GENERAL
+        assert AirwayManagement.ORAL_ETT in case.airway_management
+
+    def test_process_row_block_procedure_without_airway_defaults_to_ga(
+        self, processor, default_column_map
+    ):
+        """Block procedure presence alone should not set anesthesia type."""
+        row = pd.Series(
+            {
+                "Date": "08/27/2025",
+                "Episode ID": "12345",
+                "Anesthesiologist": "Dr. Smith",
+                "Age": 45.0,
+                "ASA": "2",
+                "Emergent": "N",
+                "Anesthesia Type": None,
+                "Procedure": "PERIPHERAL NERVE BLOCK",
+                "Services": "ORTHO",
+                "Procedure Notes": None,
+            }
+        )
+
+        case = processor.process_row(row)
+
+        assert case.anesthesia_type == AnesthesiaType.GENERAL
+        assert not any(
+            "Inferred peripheral nerve block from procedure type "
+            "without airway documentation" in warning
+            for warning in case.parsing_warnings
+        )
+
+    def test_process_row_defaults_remaining_non_obstetric_blank_to_ga(
+        self, processor, default_column_map
+    ):
+        """Remaining blank anesthesia should default to GA for non-obstetric cases."""
+        row = pd.Series(
+            {
+                "Date": "08/27/2025",
+                "Episode ID": "12345",
+                "Anesthesiologist": "Dr. Smith",
+                "Age": 45.0,
+                "ASA": "2",
+                "Emergent": "N",
+                "Anesthesia Type": None,
+                "Procedure": "KNEE ARTHROSCOPY",
+                "Services": "ORTHO",
+                "Procedure Notes": None,
+            }
+        )
+
+        case = processor.process_row(row)
+
+        assert case.anesthesia_type == AnesthesiaType.GENERAL
+        assert any(
+            "Defaulted anesthesia type to GA for non-obstetric case" in warning
+            for warning in case.parsing_warnings
+        )
+
+    def test_process_row_keeps_blank_for_obstetric_categories(
+        self, processor, default_column_map
+    ):
+        """Obstetric categories should remain blank when anesthesia is not documented."""
+        for procedure in ["CESAREAN DELIVERY ONLY", "LABOR EPIDURAL"]:
+            row = pd.Series(
+                {
+                    "Date": "08/27/2025",
+                    "Episode ID": "12345",
+                    "Anesthesiologist": "Dr. Smith",
+                    "Age": 30.0,
+                    "ASA": "2",
+                    "Emergent": "N",
+                    "Anesthesia Type": None,
+                    "Procedure": procedure,
+                    "Services": "OB",
+                    "Procedure Notes": None,
+                }
+            )
+
+            case = processor.process_row(row)
+
+            assert case.anesthesia_type is None
+            assert case.procedure_category in {
+                ProcedureCategory.CESAREAN,
+                ProcedureCategory.VAGINAL_DELIVERY,
+            }
+            assert any(
+                "Left anesthesia type blank for obstetric procedure category"
+                in warning
+                for warning in case.parsing_warnings
+            )
 
 
 class TestDataFrameProcessing:

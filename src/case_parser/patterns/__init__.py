@@ -29,7 +29,10 @@ from .airway_patterns import (
     VIDEO_LARYNGOSCOPY_PATTERNS,
     extract_airway_management,
 )
-from .anesthesia_patterns import ANESTHESIA_MAPPING
+from .anesthesia_patterns import (
+    ANESTHESIA_MAPPING,
+    MAC_WITHOUT_AIRWAY_PROCEDURE_KEYWORDS,
+)
 from .approach_patterns import (
     ENDOVASCULAR_KEYWORDS,
     NONVASCULAR_PATHOLOGY_KEYWORDS,
@@ -67,6 +70,7 @@ __all__ = [
     "ENDOVASCULAR_KEYWORDS",
     "INTUBATION_PATTERNS",
     "INVASIVE_NEURO_PATTERNS",
+    "MAC_WITHOUT_AIRWAY_PROCEDURE_KEYWORDS",
     "MASK_VENTILATION_PATTERNS",
     "NEGATION_PATTERNS",
     "NONVASCULAR_PATHOLOGY_KEYWORDS",

@@ -3,11 +3,10 @@
 import pandas as pd
 import pytest
 
-from case_parser.csv_io import (
+from case_parser.io import (
+    CsvHandler,
     discover_csv_pairs,
     join_case_and_procedures,
-    map_csv_to_standard_columns,
-    map_orphan_procedures,
 )
 from case_parser.models import ColumnMap
 
@@ -57,7 +56,7 @@ def test_discover_csv_pairs_unpaired_files_warns(tmp_path, caplog):
     assert "unpaired" in caplog.text.lower()
 
 
-def test_map_csv_to_standard_columns_populates_procedure_notes_from_airway_type():
+def test_normalize_csv_columns_populates_procedure_notes_from_airway_type():
     """CSV v2 airway value should be available for downstream airway extraction."""
     csv_df = pd.DataFrame(
         {
@@ -72,7 +71,7 @@ def test_map_csv_to_standard_columns_populates_procedure_notes_from_airway_type(
     )
     column_map = ColumnMap()
 
-    result = map_csv_to_standard_columns(csv_df, column_map)
+    result = CsvHandler(column_map)._normalize_columns(csv_df)
 
     assert result.loc[0, column_map.final_anesthesia_type] == "Intubation routine"
     assert result.loc[0, column_map.procedure_notes] == "Intubation routine"
@@ -126,16 +125,16 @@ def test_join_with_empty_proc_df():
     assert orphans.empty
 
 
-# --- map_orphan_procedures ---
+# --- normalize_orphan_columns ---
 
-def test_map_orphan_procedures_maps_required_columns():
+def test_normalize_orphan_columns_maps_required_columns():
     column_map = ColumnMap()
     orphan_df = _make_proc_df(
         ("ORPHAN-1", "Labor Epidural"),
         ("ORPHAN-2", "Peripheral nerve block"),
     )
 
-    result = map_orphan_procedures(orphan_df, column_map)
+    result = CsvHandler(column_map)._normalize_orphan_columns(orphan_df)
 
     assert list(result[column_map.episode_id]) == ["ORPHAN-1", "ORPHAN-2"]
     assert list(result[column_map.procedure]) == ["Labor Epidural", "Peripheral nerve block"]
@@ -149,11 +148,11 @@ def test_map_orphan_procedures_maps_required_columns():
     ]
 
 
-def test_map_orphan_procedures_fills_na_for_demographics():
+def test_normalize_orphan_columns_fills_na_for_demographics():
     column_map = ColumnMap()
     orphan_df = _make_proc_df(("ORPHAN-1", "Labor Epidural"))
 
-    result = map_orphan_procedures(orphan_df, column_map)
+    result = CsvHandler(column_map)._normalize_orphan_columns(orphan_df)
 
     assert pd.isna(result.loc[0, column_map.date])
     assert pd.isna(result.loc[0, column_map.age])
