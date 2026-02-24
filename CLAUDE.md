@@ -24,7 +24,6 @@ The tool can process multiple Excel files from a directory and combine them into
 - **Directory Input**: Specify a directory path instead of a single file.
 - **Automatic Discovery**: Finds all `.xlsx` and `.xls` files in the directory
 - **Combined Output**: All cases from all files are merged into one output file.
-- **Source Tracking**: Use `--add-source-column` to add a "Source File" column that tracks which file each case came from.
 - **Validation**: Each file is validated separately, with a combined summary
 
 **Use Cases**:
@@ -80,9 +79,6 @@ case-parser input.xlsx output.xlsx
 
 # Process all Excel files in a directory
 case-parser /path/to/excel/files/ combined_output.xlsx
-
-# Process directory with source file tracking
-case-parser /path/to/excel/files/ combined_output.xlsx --add-source-column
 
 # With validation report
 case-parser input.xlsx output.xlsx --validation-report validation.txt

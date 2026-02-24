@@ -43,9 +43,6 @@ Examples:
   # Process all Excel files in a directory
   %(prog)s /path/to/excel/files/ combined_output.xlsx
 
-  # Process directory with source file tracking
-  %(prog)s /path/to/excel/files/ combined_output.xlsx --add-source-column
-
   # With custom sheet and year
   %(prog)s input.xlsx output.xlsx --sheet "Data" --default-year 2024
 
@@ -88,12 +85,6 @@ Examples:
         "--validation-report",
         help="Generate validation report (text, json, or excel format)",
         metavar="FILE",
-    )
-    parser.add_argument(
-        "--add-source-column",
-        action="store_true",
-        help="Add a 'Source File' column to track which file each case came from "
-        "(useful with directory input)",
     )
     parser.add_argument(
         "--v2",
@@ -327,7 +318,7 @@ def get_output_summary(df: pd.DataFrame) -> dict[str, Any]:
             "total_cases": len(df),
             "date_range": date_range,
             "columns": list(df.columns),
-            "empty_cases": df["Case ID"].isna().sum(),
+            "empty_cases": (not df["Case ID"].fillna("").astype(str).str.strip()).sum(),
             "missing_dates": df["Case Date"].isna().sum(),
         }
     except Exception as e:

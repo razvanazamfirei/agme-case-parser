@@ -290,10 +290,7 @@ class CaseProcessor:
         # Parse services (handle multiline)
         raw_services = row.get(self.column_map.services)
         services = []
-        if not (
-            raw_services is None
-            or (isinstance(raw_services, float) and pd.isna(raw_services))
-        ):
+        if not (raw_services is None or pd.isna(raw_services)):
             services = [s.strip() for s in str(raw_services).split("\n") if s.strip()]
 
         # Determine procedure category

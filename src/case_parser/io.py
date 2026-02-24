@@ -10,7 +10,7 @@ from openpyxl.utils import get_column_letter
 from pandas import DataFrame
 
 from .extractors import extract_attending
-from .models import ColumnMap
+from .models import TECHNIQUE_RANK, ColumnMap
 
 logger = logging.getLogger(__name__)
 
@@ -112,17 +112,6 @@ class ExcelHandler:
 # CSV v2 I/O (MPOG supervised export format)
 # ---------------------------------------------------------------------------
 
-# Invasiveness ranking for MPOG ProcedureName values (higher = more invasive/complex).
-# Used to select the primary anesthesia technique when a case has multiple procedures.
-TECHNIQUE_RANK = {
-    "Intubation complex": 6,
-    "Intubation routine": 5,
-    "Spinal": 4,
-    "Epidural": 3,
-    "LMA": 2,
-    "Peripheral nerve block": 1,
-}
-
 
 def discover_csv_pairs(directory: Path) -> list[tuple[Path, Path]]:
     """Discover matching CaseList and ProcedureList CSV file pairs.
@@ -171,7 +160,7 @@ def discover_csv_pairs(directory: Path) -> list[tuple[Path, Path]]:
     return pairs
 
 
-def _select_primary_technique(proc_group: pd.DataFrame) -> pd.Series:
+def select_primary_technique(proc_group: pd.DataFrame) -> pd.Series:
     """Select the primary (most invasive) anesthesia technique for one case.
 
     Args:
@@ -214,7 +203,7 @@ def join_case_and_procedures(
     if not proc_df.empty:
         proc_agg = (
             proc_df.groupby("MPOG_Case_ID")
-            .apply(_select_primary_technique)
+            .apply(select_primary_technique)
             .reset_index()
         )
     else:
@@ -259,21 +248,21 @@ class CsvHandler:
                 all_orphan_dfs.append(orphan_procs)
 
         combined = pd.concat(all_dfs, ignore_index=True)
-        result = self._normalize_columns(combined)
+        result = self.normalize_columns(combined)
         logger.info(
             "Read total of %d cases from %d file pair(s)", len(result), len(pairs)
         )
 
         if all_orphan_dfs:
             orphan_combined = pd.concat(all_orphan_dfs, ignore_index=True)
-            orphan_result = self._normalize_orphan_columns(orphan_combined)
+            orphan_result = self.normalize_orphan_columns(orphan_combined)
             logger.info("Found %d total orphan procedure(s)", len(orphan_result))
         else:
             orphan_result = pd.DataFrame()
 
         return result, orphan_result
 
-    def _normalize_columns(self, csv_df: DataFrame) -> DataFrame:
+    def normalize_columns(self, csv_df: DataFrame) -> DataFrame:
         """Map CSV v2 columns to standard ColumnMap field names."""
         column_map = self.column_map
         result = csv_df.rename(
@@ -303,7 +292,7 @@ class CsvHandler:
         logger.info("Mapped CSV columns to standard format")
         return result
 
-    def _normalize_orphan_columns(self, orphan_df: DataFrame) -> DataFrame:
+    def normalize_orphan_columns(self, orphan_df: DataFrame) -> DataFrame:
         """Map orphan procedure rows to standard column format.
 
         Orphan procedures are ProcedureList entries whose MPOG_Case_ID has no

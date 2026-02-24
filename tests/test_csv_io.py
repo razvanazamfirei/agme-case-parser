@@ -71,13 +71,14 @@ def test_normalize_csv_columns_populates_procedure_notes_from_airway_type():
     )
     column_map = ColumnMap()
 
-    result = CsvHandler(column_map)._normalize_columns(csv_df)
+    result = CsvHandler(column_map).normalize_columns(csv_df)
 
     assert result.loc[0, column_map.final_anesthesia_type] == "Intubation routine"
     assert result.loc[0, column_map.procedure_notes] == "Intubation routine"
 
 
 # --- join_case_and_procedures orphan detection ---
+
 
 def _make_case_df(*case_ids):
     """Build a minimal CaseList DataFrame with the given MPOG_Case_IDs."""
@@ -127,6 +128,7 @@ def test_join_with_empty_proc_df():
 
 # --- normalize_orphan_columns ---
 
+
 def test_normalize_orphan_columns_maps_required_columns():
     column_map = ColumnMap()
     orphan_df = _make_proc_df(
@@ -134,10 +136,13 @@ def test_normalize_orphan_columns_maps_required_columns():
         ("ORPHAN-2", "Peripheral nerve block"),
     )
 
-    result = CsvHandler(column_map)._normalize_orphan_columns(orphan_df)
+    result = CsvHandler(column_map).normalize_orphan_columns(orphan_df)
 
     assert list(result[column_map.episode_id]) == ["ORPHAN-1", "ORPHAN-2"]
-    assert list(result[column_map.procedure]) == ["Labor Epidural", "Peripheral nerve block"]
+    assert list(result[column_map.procedure]) == [
+        "Labor Epidural",
+        "Peripheral nerve block",
+    ]
     assert list(result[column_map.final_anesthesia_type]) == [
         "Labor Epidural",
         "Peripheral nerve block",
@@ -152,7 +157,7 @@ def test_normalize_orphan_columns_fills_na_for_demographics():
     column_map = ColumnMap()
     orphan_df = _make_proc_df(("ORPHAN-1", "Labor Epidural"))
 
-    result = CsvHandler(column_map)._normalize_orphan_columns(orphan_df)
+    result = CsvHandler(column_map).normalize_orphan_columns(orphan_df)
 
     assert pd.isna(result.loc[0, column_map.date])
     assert pd.isna(result.loc[0, column_map.age])
