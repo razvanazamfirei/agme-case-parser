@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from itertools import starmap
 from typing import Any
 
 import pandas as pd
@@ -290,7 +292,7 @@ class CaseProcessor:
         # Parse services (handle multiline)
         raw_services = row.get(self.column_map.services)
         services = []
-        if not (raw_services is None or pd.isna(raw_services)):
+        if pd.notna(raw_services):
             services = [s.strip() for s in str(raw_services).split("\n") if s.strip()]
 
         # Determine procedure category
@@ -382,7 +384,28 @@ class CaseProcessor:
             confidence_score=overall_confidence,
         )
 
-    def process_dataframe(self, df: pd.DataFrame) -> list[ParsedCase]:
+    def _process_row_safe(self, idx: Any, row: pd.Series) -> ParsedCase:
+        try:
+            return self.process_row(row)
+        except Exception as e:
+            logger.exception("Error processing row %d: %s", idx, e)
+            return ParsedCase(
+                raw_date=None,
+                episode_id=None,
+                raw_age=None,
+                raw_asa=None,
+                emergent=False,
+                raw_anesthesia_type=None,
+                services=[],
+                procedure=None,
+                procedure_notes=None,
+                responsible_provider=None,
+                case_date=datetime(self.default_year, 1, 1, tzinfo=UTC).date(),
+                parsing_warnings=[f"Failed to process row: {e!s}"],
+                confidence_score=0.0,
+            )
+
+    def process_dataframe(self, df: pd.DataFrame, workers: int = 1) -> list[ParsedCase]:
         """
         Transform input dataframe to list of ParsedCase objects.
 
@@ -390,6 +413,8 @@ class CaseProcessor:
             List of ParsedCase objects
         """
         logger.info("Processing %d rows of data", len(df))
+        if workers < 1:
+            raise ValueError("workers must be at least 1")
 
         # Validate required columns exist
         required_columns = [
@@ -407,31 +432,17 @@ class CaseProcessor:
         if missing_columns:
             logger.warning("Missing columns in input data: %s", missing_columns)
 
-        # Process all rows
-        processed_cases = []
-        for idx, row in df.iterrows():
-            try:
-                case = self.process_row(row)
-                processed_cases.append(case)
-            except Exception as e:
-                logger.error("Error processing row %d: %s", idx, e)
-                # Create a minimal case with error
-                error_case = ParsedCase(
-                    raw_date=None,
-                    episode_id=None,
-                    raw_age=None,
-                    raw_asa=None,
-                    emergent=False,
-                    raw_anesthesia_type=None,
-                    services=[],
-                    procedure=None,
-                    procedure_notes=None,
-                    responsible_provider=None,
-                    case_date=datetime(self.default_year, 1, 1, tzinfo=UTC).date(),
-                    parsing_warnings=[f"Failed to process row: {e!s}"],
-                    confidence_score=0.0,
-                )
-                processed_cases.append(error_case)
+        indexed_rows = list(df.iterrows())
+        processed_cases: list[ParsedCase] = []
+        if workers == 1:
+            processed_cases = list(starmap(self._process_row_safe, indexed_rows))
+        else:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
+                futures = [
+                    executor.submit(self._process_row_safe, idx, row)
+                    for idx, row in indexed_rows
+                ]
+                processed_cases = [f.result() for f in futures]
 
         logger.info("Successfully processed %d cases", len(processed_cases))
         return processed_cases

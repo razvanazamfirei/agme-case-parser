@@ -1,59 +1,56 @@
 [tools]
-python = "3.13"
+  python = "3.13"
 
 [env]
-_.python.venv = { path = ".venv", create = true, uv_create_args = ["--system-site-packages", "--seed"] }
+  _.python.venv = { path = ".venv", create = true, uv_create_args = [
+    "--system-site-packages",
+    "--seed",
+  ] }
 
 [tasks.setup]
-description = "Install dependencies and set up the project"
-run = "uv sync"
+  description = "Install dependencies and set up the project"
+  run         = "uv sync"
 
 [tasks."setup:dev"]
-description = "Install dependencies including dev extras"
-run = "uv sync --extra dev"
+  description = "Install dependencies including dev group"
+  run         = "uv sync --group dev"
 
 [tasks.install]
-description = "Install package in development mode"
-run = "uv pip install -e ."
-depends = ["setup"]
+  depends     = ["setup"]
+  description = "Install package in development mode"
+  run         = "uv pip install -e ."
 
 [tasks.lint]
-description = "Check code with ruff"
-run = "ruff check ."
+  description = "Check code with ruff"
+  run         = "ruff check ."
 
 [tasks."lint:fix"]
-description = "Fix auto-fixable linting issues"
-run = "ruff check --fix ."
+  description = "Fix auto-fixable linting issues"
+  run         = "ruff check --fix ."
 
 [tasks.format]
-description = "Format code with ruff"
-run = "ruff format ."
+  description = "Format code with ruff"
+  run         = "ruff format ."
 
 [tasks."format:check"]
-description = "Check code formatting without modifying files"
-run = "ruff format --check ."
+  description = "Check code formatting without modifying files"
+  run         = "ruff format --check ."
 
 [tasks.check]
-description = "Run all code quality checks"
-run = [
-    "ruff check .",
-    "ruff format --check ."
-]
+  description = "Run all code quality checks"
+  run         = ["ruff check .", "ruff format --check ."]
 
 [tasks.fix]
-description = "Fix and format all code"
-run = [
-    "ruff check --fix .",
-    "ruff format ."
-]
+  description = "Fix and format all code"
+  run         = ["ruff check --fix .", "ruff format ."]
 
 [tasks.run]
-description = "Run the case parser (usage: mise run -- input.xlsx output.xlsx)"
-run = "python main.py"
+  description = "Run the case parser (usage: mise run -- input.xlsx output.xlsx)"
+  run         = "python main.py"
 
 [tasks.clean]
-description = "Clean up generated files and caches"
-run = """
+  description = "Clean up generated files and caches"
+  run = """
 rm -rf .venv
 rm -rf .ruff_cache
 rm -rf dist
@@ -64,9 +61,9 @@ find . -type f -name '*.pyc' -delete
 """
 
 [tasks.process-all]
-description = "Run the case parser on all Excel files in the input directory"
-run = "python batch_process.py"
+  description = "Run the case parser on all Excel files in the input directory"
+  run         = "python batch_process.py"
 
 [tasks.sort-cases]
-description = "Sort cases in the input Excel file and save to output"
-run = "python sort_logs.py"
+  description = "Sort cases in the input Excel file and save to output"
+  run         = "python sort_logs.py"

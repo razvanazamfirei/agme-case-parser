@@ -1,37 +1,45 @@
 [project]
-name = "case-parser"
-version = "0.1.0"
-description = "A tool for processing anesthesia case data from Excel files and converting it to standardized case log format"
-requires-python = ">=3.11"
-dependencies = [
-  "numpy~=2.4.2",
-  "openpyxl>=3.1.5",
-  "pandas>=3.0.1",
-  "pandas-stubs~=3.0.0",
-  "pydantic==2.13.0b1",
-  "pydantic-core==2.42.0",
-  "requests>=2.31.0",
-  "rich>=14.3.3",
-  "pytest>=9.0.2",
-  "ruff>=0.15.2",
-  "scikit-learn>=1.6",
-  "ty>=0.0.18",
-  "types-pytz==2025.2.0.20251108",
-  "scipy>=1.17",
-]
-authors = [{ name = "Razvan Azamfirei", email = "razvan@azamfirei.dev" }]
-readme = "README.md"
-license = { text = "Apache License 2.0" }
+  dependencies = [
+    "numpy>=2.4.2",
+    "openpyxl>=3.1.5",
+    "pandas>=3.0.1",
+    "pydantic-core>=2.42.0",
+    "pydantic>=2.12.5",
+    "requests>=2.31.0",
+    "rich>=14.3.3",
+    "scikit-learn>=1.6",
+    "scipy>=1.17.1",
+  ]
+  description = "A tool for processing anesthesia case data from Excel files and converting it to standardized case log format"
+  name = "case-parser"
+  requires-python = ">=3.11"
+  version = "0.1.0"
 
-[project.scripts]
-case-parser = "case_parser.cli:main"
+  authors = [{ name = "Razvan Azamfirei", email = "razvan@azamfirei.dev" }]
+  license = { text = "Apache License 2.0" }
+  readme  = "README.md"
+[dependency-groups]
+  dev = [
+    "pandas-stubs~=3.0.0",
+    "pytest>=9.0.2",
+    "ruff>=0.15.2",
+    "scipy-stubs>=1.17.0",
+    "ty>=0.0.18",
+    "types-pytz>=2025.2.0.20251108",
+  ]
+
+  [project.scripts]
+    case-parser = "case_parser.cli:main"
 
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+  build-backend = "hatchling.build"
+  requires      = ["hatchling"]
+
+[tool.uv]
+  default-groups = "all"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/case_parser"]
+  packages = ["src/case_parser"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+  testpaths = ["tests"]
