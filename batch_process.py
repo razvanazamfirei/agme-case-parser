@@ -13,7 +13,9 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -43,12 +45,12 @@ logger = logging.getLogger(__name__)
 console = Console()
 
 
-@dataclass
+@dataclass(frozen=True)
 class ProcessConfig:
     output_dir: Path
     columns: ColumnMap
     excel_handler: ExcelHandler
-    workers: int = field(default=4)
+    workers: int = field(default=os.cpu_count())
 
 
 def find_resident_pairs(case_dir: Path, proc_dir: Path) -> list[tuple[str, Path, Path]]:
@@ -74,36 +76,38 @@ def format_name(name: str) -> str:
 
 
 def process_resident(
-    name: str,
-    case_file: Path,
-    proc_file: Path,
+    pairs: tuple[str, Path, Path],
     config: ProcessConfig,
+    processor: CaseProcessor,
+    orphan_notices: list[tuple[str, int, str]],
+    orphan_notices_lock: threading.Lock,
 ) -> int:
+    name: str = pairs.name
+    case_file: Path = pairs.cf
+    proc_file: Path = pairs.pf
     """Process one resident's files and write output Excel. Returns case count."""
     case_df = pd.read_csv(case_file)
     proc_df = pd.read_csv(proc_file)
 
     joined, orphans = join_case_and_procedures(case_df, proc_df)
+    formatted_name = format_name(name)
 
     if not orphans.empty:
-        standalone_path = config.output_dir / f"{format_name(name)}_standalone.xlsx"
+        standalone_path = config.output_dir / f"{formatted_name}_standalone.xlsx"
         config.excel_handler.write_excel(orphans, str(standalone_path))
-        console.print(
-            f"  [yellow]Note:[/yellow] {name}: {len(orphans)} orphan procedure(s) "
-            f"→ {standalone_path.name}"
-        )
+        with orphan_notices_lock:
+            orphan_notices.append((name, len(orphans), standalone_path.name))
 
     if joined.empty:
         return 0
 
     df = CsvHandler(config.columns).normalize_columns(joined)
-    processor = CaseProcessor(config.columns, default_year=2025, use_ml=True)
-    parsed_cases = processor.process_dataframe(df)
+    parsed_cases = processor.process_dataframe(df, config.workers)
     if not parsed_cases:
         return 0
 
     output_df = processor.cases_to_dataframe(parsed_cases)
-    output_path = config.output_dir / f"{format_name(name)}.xlsx"
+    output_path = config.output_dir / f"{formatted_name}.xlsx"
     config.excel_handler.write_excel(
         output_df, str(output_path), fixed_widths={"Original Procedure": 12}
     )
@@ -167,9 +171,11 @@ def main() -> None:
         excel_handler=ExcelHandler(),
         workers=args.workers,
     )
+    processor = CaseProcessor(config.columns, default_year=2025, use_ml=True)
     total_cases = 0
     errors: list[tuple[str, str]] = []
-
+    orphan_notices: list[tuple[str, int, str]] = []
+    orphan_notices_lock = threading.Lock()
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
@@ -183,8 +189,15 @@ def main() -> None:
 
         with ThreadPoolExecutor(max_workers=config.workers) as executor:
             futures = {
-                executor.submit(process_resident, name, cf, pf, config): name
-                for name, cf, pf in pairs
+                executor.submit(
+                    process_resident,
+                    pair,
+                    config,
+                    processor,
+                    orphan_notices,
+                    orphan_notices_lock,
+                ): name
+                for name, pair in pairs
             }
             for future in as_completed(futures):
                 name = futures[future]
@@ -193,6 +206,12 @@ def main() -> None:
                 except Exception as e:
                     errors.append((name, str(e)))
                 progress.advance(task)
+
+    for name, orphan_count, standalone_name in orphan_notices:
+        console.print(
+            f"  [yellow]Note:[/yellow] {name}: {orphan_count} orphan procedure(s) "
+            f"→ {standalone_name}"
+        )
 
     console.print(
         f"\n[green]Done.[/green] Processed [cyan]{len(pairs) - len(errors)}[/cyan] "

@@ -292,9 +292,7 @@ class CaseProcessor:
         # Parse services (handle multiline)
         raw_services = row.get(self.column_map.services)
         services = []
-        if raw_services is not None and raw_services is not pd.NA and not (
-            isinstance(raw_services, float) and pd.isna(raw_services)
-        ):
+        if pd.notna(raw_services):
             services = [s.strip() for s in str(raw_services).split("\n") if s.strip()]
 
         # Determine procedure category
@@ -385,11 +383,12 @@ class CaseProcessor:
             parsing_warnings=all_warnings,
             confidence_score=overall_confidence,
         )
+
     def _process_row_safe(self, idx: Any, row: pd.Series) -> ParsedCase:
         try:
             return self.process_row(row)
         except Exception as e:
-            logger.error("Error processing row %d: %s", idx, e)
+            logger.exception("Error processing row %d: %s", idx, e)
             return ParsedCase(
                 raw_date=None,
                 episode_id=None,
@@ -414,6 +413,8 @@ class CaseProcessor:
             List of ParsedCase objects
         """
         logger.info("Processing %d rows of data", len(df))
+        if workers < 1:
+            raise ValueError("workers must be at least 1")
 
         # Validate required columns exist
         required_columns = [
