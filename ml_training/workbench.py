@@ -503,6 +503,9 @@ def _run_script_stage(name: str, script_path: Path, argv: list[str]) -> int:
 def _resolve_procedure_column(df: pd.DataFrame) -> str:
     """Return the procedure text column name.
 
+    Args:
+        df: DataFrame in which to locate the procedure text column.
+
     Returns:
         Name of the procedure text column found in the DataFrame.
 
@@ -641,6 +644,10 @@ def _save_review_progress(runtime: ReviewRuntime) -> None:
 def _load_reviewed_indices(paths: ReviewPaths, resume: bool) -> set[int]:
     """Load previously reviewed indices when resume mode is enabled.
 
+    Args:
+        paths: Review paths containing the progress file path to load from.
+        resume: Whether to attempt loading prior progress.
+
     Returns:
         Set of previously reviewed case indices, or empty set if resume is
         False or no matching progress file exists.
@@ -723,6 +730,10 @@ def _recommended_category(case: ReviewCase) -> str:
 
 def _label_record(case: ReviewCase, selected: str) -> dict[str, Any]:
     """Create normalized label record for review output.
+
+    Args:
+        case: The review case providing procedure text and prediction fields.
+        selected: The category chosen by the reviewer.
 
     Returns:
         Dict with procedure, human_category, rule_category, ml_category,
@@ -935,6 +946,10 @@ def _run_tui_review_session(
 ) -> ReviewSessionMetrics:
     """Run full-screen review TUI using Textual.
 
+    Args:
+        queue: Ordered list of ``ReviewCase`` instances to review.
+        runtime: The ``ReviewRuntime`` containing configuration and shared state.
+
     Returns:
         ReviewSessionMetrics collected during the TUI session.
 
@@ -1124,6 +1139,9 @@ def _normalize_procedure_key(value: Any) -> str:
 def _load_override_map(review_labels_path: Path) -> dict[str, str]:
     """Load latest human override per normalized procedure text.
 
+    Args:
+        review_labels_path: Path to the review labels CSV file.
+
     Returns:
         Dict mapping normalized procedure key to canonical human category string.
 
@@ -1155,6 +1173,10 @@ def _load_override_map(review_labels_path: Path) -> dict[str, str]:
 
 def _upsert_label_column(df: pd.DataFrame, label_column: str) -> pd.DataFrame:
     """Ensure label column exists and normalized.
+
+    Args:
+        df: Input DataFrame to update.
+        label_column: Name of the label column to ensure and normalize.
 
     Returns:
         Copy of df with label_column present and values normalized to canonical
@@ -1218,6 +1240,12 @@ def _merge_override_frames(
 ) -> tuple[pd.DataFrame, pd.DataFrame, int, int, int, int]:
     """Merge retrain frames and upweight true correction overrides.
 
+    Args:
+        seen_df: Training (seen) DataFrame with a ``_procedure_key`` column.
+        unseen_df: Holdout (unseen) DataFrame with a ``_procedure_key`` column.
+        override_map: Mapping of normalized procedure key to human category override.
+        label_column: Name of the label column to update with overrides.
+
     Returns:
         Tuple of (retrain_df, remaining_eval_df, seen_overrides_applied,
         unseen_promoted, corrected_rows, rows_added_by_weighting).
@@ -1268,6 +1296,9 @@ def _merge_override_frames(
 
 def _prepare_override_retrain_datasets(args: argparse.Namespace) -> RetrainMergeSummary:
     """Create retrain/eval datasets that incorporate human review overrides.
+
+    Args:
+        args: Parsed command-line arguments for the retrain command.
 
     Returns:
         RetrainMergeSummary with counts of overrides applied and rows written.
@@ -1356,6 +1387,9 @@ def _print_retrain_merge_summary(
 
 def _retrain_command(args: argparse.Namespace) -> int:
     """Retrain model after applying human review overrides.
+
+    Args:
+        args: Parsed command-line arguments for the retrain command.
 
     Returns:
         0 on success, 1 if dataset preparation fails, or the training script
@@ -1452,6 +1486,9 @@ def _train_command(args: argparse.Namespace) -> int:
 
 def _evaluate_command(args: argparse.Namespace) -> int:
     """Run standalone evaluation command.
+
+    Args:
+        args: Parsed command-line arguments for the evaluate command.
 
     Returns:
         Exit code from the evaluate.py script.

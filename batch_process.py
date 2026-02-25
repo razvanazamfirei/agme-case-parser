@@ -102,10 +102,13 @@ def process_resident(
     """Process one resident's files and write output Excel.
 
     Args:
-        name: Resident identifier (``LAST_FIRST`` format) used for output filenames.
-        case_file: Path to the resident's CaseList CSV.
-        proc_file: Path to the resident's ProcedureList CSV.
+        pairs: Tuple of (name, case_file, proc_file) where name is the resident
+            identifier (``LAST_FIRST`` format), case_file is the path to the
+            CaseList CSV, and proc_file is the path to the ProcedureList CSV.
         config: Shared processing configuration (output dir, column map, handlers).
+        processor: Configured ``CaseProcessor`` instance for transforming rows.
+        orphan_notices: Shared list to which orphan-file notices are appended.
+        orphan_notices_lock: Lock protecting concurrent access to orphan_notices.
 
     Returns:
         Number of cases written to the output Excel file, or 0 if there were
@@ -115,7 +118,6 @@ def process_resident(
     case_file: Path
     proc_file: Path
     name, case_file, proc_file = pairs
-    """Process one resident's files and write output Excel. Returns case count."""
     case_df = pd.read_csv(case_file)
     proc_df = pd.read_csv(proc_file)
 

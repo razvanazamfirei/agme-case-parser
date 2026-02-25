@@ -85,6 +85,9 @@ def validate_model_artifact(model_path: Path) -> None:
 def split_prepared_dataset(config: SplitConfig) -> tuple[int, int]:
     """Split prepared data into seen (train) and unseen (holdout) sets.
 
+    Args:
+        config: Split configuration specifying paths, ratios, and the label column.
+
     Returns:
         Tuple of (seen_count, unseen_count) rows written to each split file.
 

@@ -69,6 +69,10 @@ def get_category_from_input(user_input: str) -> str | None:
 def run_python_script(script_path: Path, argv: list[str]) -> int:
     """Run a Python script in-process and return its exit code.
 
+    Args:
+        script_path: Path to the Python script to execute.
+        argv: Command-line arguments to pass to the script.
+
     Returns:
         Exit code from the script's SystemExit, or 0 if the script completes
         without raising SystemExit.

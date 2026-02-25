@@ -32,6 +32,10 @@ def process_single_file(
 ) -> dict[str, Any]:
     """Process a single CSV file and extract cases with rule-based categorization.
 
+    Args:
+        file_path: Path to the CSV file to process.
+        sample_size: Optional maximum number of rows to sample from the file.
+
     Returns:
         Dict with keys "file", "total_rows", "valid_cases", and "cases" on
         success, or "file" and "error" on failure.
@@ -74,6 +78,10 @@ def smart_sample_cases(
     all_cases: list[dict[str, Any]], target_size: int
 ) -> list[dict[str, Any]]:
     """Smart sampling to maximize training value.
+
+    Args:
+        all_cases: Full list of case dicts to sample from.
+        target_size: Maximum number of cases to include in the sample.
 
     Returns:
         Shuffled list of up to target_size cases, weighted toward high-value
