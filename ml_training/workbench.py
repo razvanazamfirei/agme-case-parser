@@ -146,6 +146,9 @@ class RetrainPaths:
 def _procedure_title(procedure: str, max_length: int = 96) -> str:
     """Build a compact procedure title from free-form procedure text.
 
+    Args:
+        procedure: Free-form procedure text from which to derive the title.
+        max_length: Maximum allowed length of the returned title string.
     Returns:
         Truncated title string, at most max_length characters.
     """
@@ -160,6 +163,9 @@ def _procedure_title(procedure: str, max_length: int = 96) -> str:
 def _recommendation_source(rule_match: bool, ml_match: bool) -> str:
     """Describe which assessment(s) produced the recommendation.
 
+    Args:
+        rule_match: Whether the rule-based prediction matches the recommended label.
+        ml_match: Whether the ML-based prediction matches the recommended label.
     Returns:
         Human-readable string naming the source(s) of the recommendation.
     """
@@ -175,6 +181,9 @@ def _recommendation_source(rule_match: bool, ml_match: bool) -> str:
 def _dim_if_needed(text: str, dim: bool) -> str:
     """Dim panel text when it is not the recommended option.
 
+    Args:
+        text: The panel text to potentially dim.
+        dim: Whether to apply Rich dim styling to the text.
     Returns:
         Text wrapped in Rich dim markup if dim is True, otherwise unchanged.
     """
@@ -478,6 +487,10 @@ class ReviewApp(App):
 def _run_script_stage(name: str, script_path: Path, argv: list[str]) -> int:
     """Run one script stage with logging.
 
+    Args:
+        name: Human-readable label for the stage, used in log output.
+        script_path: Path to the Python script to execute.
+        argv: Command-line arguments to pass to the script.
     Returns:
         Exit code returned by the script.
     """
@@ -562,6 +575,10 @@ def _load_review_cases(
 ) -> list[ReviewCase]:
     """Load and rank review cases according to configured filters.
 
+    Args:
+        data_path: CSV file containing prepared case data to be reviewed.
+        model_path: Path to the serialized ML model used to generate predictions.
+        config: Review configuration controlling focus and confidence thresholds.
     Returns:
         List of ReviewCase objects sorted by disagreement then confidence.
     """
@@ -597,6 +614,8 @@ def _load_review_cases(
 def _load_review_progress(progress_path: Path) -> dict[str, Any]:
     """Load persisted review progress payload.
 
+    Args:
+        progress_path: Path to the JSON file storing review progress.
     Returns:
         Parsed progress dict, or an empty dict if the file does not exist.
     """
@@ -659,6 +678,9 @@ def _save_review_labels(
 def _build_action_table(recommended: str) -> Table:
     """Build compact key/action legend for classic mode.
 
+    Args:
+        recommended: The label that will be shown as the recommended option
+            in the key/action legend (for example, the suggested category).
     Returns:
         Rich Table mapping keys to their review actions.
     """
@@ -722,6 +744,10 @@ def _resolve_selected_category(
 ) -> str | None:
     """Map user choice to final category.
 
+    Args:
+        choice: User's raw input representing the category selection.
+        case: The review case providing ML and rule-based predictions.
+        recommended: The recommended category to apply when accepting.
     Returns:
         Selected category string, or None if the choice is unrecognized.
     """
@@ -861,6 +887,9 @@ def _run_review_classic(
 ) -> ReviewSessionMetrics:
     """Run classic prompt-based review mode.
 
+    Args:
+        queue: Ordered list of ``ReviewCase`` instances to be reviewed in this session.
+        runtime: The ``ReviewRuntime`` containing configuration and shared state for the session.
     Returns:
         ReviewSessionMetrics with counts of reviewed, accepted, and skipped cases.
     """
@@ -1056,6 +1085,8 @@ def _run_review_interface(
 def _review_command(args: argparse.Namespace) -> int:
     """Run streamlined interactive correction workflow.
 
+    Args:
+        args: Parsed command-line arguments for the review command.
     Returns:
         0 on success or when the queue is empty, 1 if required paths are invalid.
     """
@@ -1078,6 +1109,10 @@ def _review_command(args: argparse.Namespace) -> int:
 def _normalize_procedure_key(value: Any) -> str:
     """Build stable lookup key for joining procedure rows across files.
 
+    Args:
+        value: Input value to normalize; may be any type. ``None`` is treated as
+            an empty string, and other values are converted to a stripped,
+            whitespace-normalized, uppercased string.
     Returns:
         Uppercased, whitespace-normalized string, or empty string for None.
     """
@@ -1405,6 +1440,8 @@ def _auto_train_argv(args: argparse.Namespace) -> list[str]:
 def _train_command(args: argparse.Namespace) -> int:
     """Run deterministic training pipeline.
 
+    Args:
+        args: Parsed command-line arguments for the training pipeline.
     Returns:
         Exit code from the auto_train.py script.
     """
@@ -1456,6 +1493,9 @@ def _print_next_review_step(model_path: Path, data_path: Path) -> None:
 def _run_command_chain(args: argparse.Namespace) -> int:
     """Run train -> evaluate in one command and suggest next review step.
 
+    Args:
+        args: Parsed command-line options controlling training, evaluation,
+            and whether to skip the evaluation step.
     Returns:
         0 on success, or the first non-zero exit code from training or evaluation.
     """

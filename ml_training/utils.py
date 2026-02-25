@@ -29,6 +29,8 @@ CATEGORY_MAP = {str(i + 1): cat for i, cat in enumerate(CATEGORIES)}
 def normalize_category_label(category: str | None) -> str:
     """Normalize category labels to canonical enum values.
 
+    Args:
+        category: Input category label to normalize, or None for unknown/other.
     Returns:
         Canonical category string from ProcedureCategory enum values.
     """

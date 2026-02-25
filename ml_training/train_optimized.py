@@ -231,6 +231,11 @@ def train_ensemble_model(
 ) -> TrainArtifacts:
     """Train candidate models and return the best performer.
 
+    Args:
+        x_train: Training feature matrix.
+        y_train: Training labels corresponding to ``x_train``.
+        x_val: Validation feature matrix.
+        y_val: Validation labels corresponding to ``x_val``.
     Returns:
         TrainArtifacts containing the best model, feature extractor, score, and name.
     """

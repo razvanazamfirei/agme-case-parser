@@ -70,6 +70,9 @@ def _bin_confidence(score: float, bins: dict[str, int]) -> None:
 def evaluate_model(model_path: Path, data_path: Path) -> EvaluationSummary:
     """Evaluate model on a CSV file and return aggregate metrics.
 
+    Args:
+        model_path: Path to the trained model file to load for evaluation.
+        data_path: Path to the CSV file containing procedures to evaluate.
     Returns:
         EvaluationSummary with confidence distribution and disagreement cases.
     """

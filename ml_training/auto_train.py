@@ -62,6 +62,10 @@ class PipelineError(RuntimeError):
 def run_stage(name: str, command: str, action: Callable[[], int]) -> StageResult:
     """Run one stage and return a normalized result.
 
+    Args:
+        name: Human-readable name of the pipeline stage.
+        command: Command string to display when running the stage.
+        action: Callable that runs the stage and returns an integer exit code.
     Returns:
         StageResult with name, success flag, and command string.
     """
