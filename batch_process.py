@@ -50,7 +50,7 @@ class ProcessConfig:
     output_dir: Path
     columns: ColumnMap
     excel_handler: ExcelHandler
-    workers: int = field(default=os.cpu_count())
+    workers: int = field(default=os.cpu_count() or 1)
 
 
 def find_resident_pairs(case_dir: Path, proc_dir: Path) -> list[tuple[str, Path, Path]]:
@@ -82,9 +82,10 @@ def process_resident(
     orphan_notices: list[tuple[str, int, str]],
     orphan_notices_lock: threading.Lock,
 ) -> int:
-    name: str = pairs.name
-    case_file: Path = pairs.cf
-    proc_file: Path = pairs.pf
+    name: str
+    case_file: Path
+    proc_file: Path
+    name, case_file, proc_file = pairs
     """Process one resident's files and write output Excel. Returns case count."""
     case_df = pd.read_csv(case_file)
     proc_df = pd.read_csv(proc_file)
@@ -102,7 +103,16 @@ def process_resident(
         return 0
 
     df = CsvHandler(config.columns).normalize_columns(joined)
-    parsed_cases = processor.process_dataframe(df, config.workers)
+
+    # Avoid nested thread pools: when processing multiple residents in parallel
+    # (config.workers > 1), keep row-level processing single-threaded. When
+    # processing residents sequentially, allow row-level parallelism up to CPU count.
+    if config.workers and config.workers > 1:
+        row_workers = 1
+    else:
+        row_workers = os.cpu_count() or 1
+
+    parsed_cases = processor.process_dataframe(df, row_workers)
     if not parsed_cases:
         return 0
 
@@ -196,8 +206,8 @@ def main() -> None:
                     processor,
                     orphan_notices,
                     orphan_notices_lock,
-                ): name
-                for name, pair in pairs
+                ): pair[0]
+                for pair in pairs
             }
             for future in as_completed(futures):
                 name = futures[future]

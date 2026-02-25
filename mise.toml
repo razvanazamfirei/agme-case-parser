@@ -12,8 +12,8 @@
   run         = "uv sync"
 
 [tasks."setup:dev"]
-  description = "Install dependencies including dev extras"
-  run         = "uv sync --extra dev"
+  description = "Install dependencies including dev group"
+  run         = "uv sync --group dev"
 
 [tasks.install]
   depends     = ["setup"]
