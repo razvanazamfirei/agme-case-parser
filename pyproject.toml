@@ -18,6 +18,7 @@ dependencies = [
   "ty>=0.0.18",
   "types-pytz==2025.2.0.20251108",
   "scipy>=1.17",
+  "scipy-stubs~=1.17.0",
 ]
 authors = [{ name = "Razvan Azamfirei", email = "razvan@azamfirei.dev" }]
 readme = "README.md"

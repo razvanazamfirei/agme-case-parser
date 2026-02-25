@@ -1,3 +1,12 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.11"
+# dependencies = [
+#   "pandas>=3.0.1",
+#   "rich>=14.3.3",
+#   "case-parser",
+# ]
+# ///
 """Batch process all residents from Output-Supervised into individual Excel files."""
 
 from __future__ import annotations
@@ -5,7 +14,8 @@ from __future__ import annotations
 import argparse
 import logging
 import sys
-from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pandas as pd
@@ -38,6 +48,7 @@ class ProcessConfig:
     output_dir: Path
     columns: ColumnMap
     excel_handler: ExcelHandler
+    workers: int = field(default=4)
 
 
 def find_resident_pairs(case_dir: Path, proc_dir: Path) -> list[tuple[str, Path, Path]]:
@@ -73,13 +84,19 @@ def process_resident(
     proc_df = pd.read_csv(proc_file)
 
     joined, orphans = join_case_and_procedures(case_df, proc_df)
+
     if not orphans.empty:
-        console.print(f"  [yellow]Note:[/yellow] {name}: {len(orphans)} orphan procedure(s) skipped")
+        standalone_path = config.output_dir / f"{format_name(name)}_standalone.xlsx"
+        config.excel_handler.write_excel(orphans, str(standalone_path))
+        console.print(
+            f"  [yellow]Note:[/yellow] {name}: {len(orphans)} orphan procedure(s) "
+            f"→ {standalone_path.name}"
+        )
+
     if joined.empty:
         return 0
 
     df = CsvHandler(config.columns).normalize_columns(joined)
-
     processor = CaseProcessor(config.columns, default_year=2025, use_ml=True)
     parsed_cases = processor.process_dataframe(df)
     if not parsed_cases:
@@ -107,6 +124,12 @@ def main() -> None:
         type=Path,
         default=Path("Output-Individual"),
         help="Directory to write individual Excel files (default: Output-Individual)",
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=4,
+        help="Number of parallel workers for resident processing (default: 4)",
     )
     args = parser.parse_args()
 
@@ -142,6 +165,7 @@ def main() -> None:
         output_dir=output_dir,
         columns=ColumnMap(),
         excel_handler=ExcelHandler(),
+        workers=args.workers,
     )
     total_cases = 0
     errors: list[tuple[str, str]] = []
@@ -157,13 +181,18 @@ def main() -> None:
     ) as progress:
         task = progress.add_task("Processing residents", total=len(pairs))
 
-        for name, case_file, proc_file in pairs:
-            try:
-                count = process_resident(name, case_file, proc_file, config)
-                total_cases += count
-            except Exception as e:
-                errors.append((name, str(e)))
-            progress.advance(task)
+        with ThreadPoolExecutor(max_workers=config.workers) as executor:
+            futures = {
+                executor.submit(process_resident, name, cf, pf, config): name
+                for name, cf, pf in pairs
+            }
+            for future in as_completed(futures):
+                name = futures[future]
+                try:
+                    total_cases += future.result()
+                except Exception as e:
+                    errors.append((name, str(e)))
+                progress.advance(task)
 
     console.print(
         f"\n[green]Done.[/green] Processed [cyan]{len(pairs) - len(errors)}[/cyan] "
