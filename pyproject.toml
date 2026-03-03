@@ -47,9 +47,9 @@ build.targets.wheel.packages = [ "src/case_parser" ]
 [tool.uv]
 default-groups = "all"
 
-[tool.pytest]
-ini_options.addopts = "--cov=case_parser --cov-report=term-missing --cov-report=xml:coverage.xml --junitxml=junit.xml -o junit_family=legacy"
-ini_options.testpaths = [ "tests" ]
+[tool.pytest.ini_options]
+addopts = "--cov=case_parser --cov-report=term-missing --cov-report=xml:coverage.xml --junitxml=junit.xml -o junit_family=legacy"
+testpaths = [ "tests" ]
 
 [tool.coverage]
 run.branch = true
