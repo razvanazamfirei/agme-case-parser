@@ -78,7 +78,7 @@ class ExcelHandler:
         """
         self.max_width = max_width
 
-    def write_excel(
+    def write_excel(  # noqa: PLR0913, PLR0917
         self,
         df: pd.DataFrame,
         file_path: str | Path,

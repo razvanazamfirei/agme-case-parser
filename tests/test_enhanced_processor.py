@@ -588,7 +588,7 @@ class TestRowProcessing:
         )
 
     def test_process_row_block_procedure_with_airway_stays_general(
-        self, processor, default_column_map
+        self, processor
     ):
         """Documented airway should still infer GA regardless of block text."""
         row = pd.Series({

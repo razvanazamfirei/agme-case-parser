@@ -10,7 +10,6 @@ from itertools import starmap
 from typing import Any
 
 import pandas as pd
-from pandas import Series
 
 from .domain import (
     AgeCategory,
@@ -362,7 +361,10 @@ class CaseProcessor:
         """Convert non-null values to float, preserving nulls."""
         if pd.isna(value):
             return None
-        return float(str(value))
+        try:
+            return float(str(value).strip())
+        except (TypeError, ValueError):
+            return None
 
     @staticmethod
     def _clean_provider_name(value: Any) -> str | None:
@@ -441,7 +443,7 @@ class CaseProcessor:
         monitoring, monitoring_findings = extract_monitoring(notes)
         self._extend_findings(monitoring_findings, all_findings, confidence_scores)
 
-        if metadata.procedure_text:
+        if pd.notna(metadata.procedure_text) and str(metadata.procedure_text).strip():
             procedure_monitoring, procedure_findings = extract_monitoring(
                 metadata.procedure_text, source_field="procedure"
             )
@@ -516,7 +518,7 @@ class CaseProcessor:
         )
 
     def get_asa(
-        self, all_warnings: list[Any], row: Series[Any]
+        self, all_warnings: list[str], row: pd.Series
     ) -> tuple[str, bool, Any]:
         # Handle ASA with emergent flag
         raw_asa = row.get(self.column_map.asa)

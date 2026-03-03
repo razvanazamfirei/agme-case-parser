@@ -195,7 +195,7 @@ class TestCategorizeProcedure:
         assert warnings == []
 
     def test_multiple_categories_generates_warning(self):
-        category, warnings = categorize_procedure(
+        _category, warnings = categorize_procedure(
             "Complex surgery", ["CARDIAC", "VASC"]
         )
         assert len(warnings) == 1

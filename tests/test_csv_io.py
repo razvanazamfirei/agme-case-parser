@@ -134,8 +134,8 @@ def test_join_with_empty_proc_df():
 def _make_full_proc_df(*rows):
     """Build a ProcedureList DataFrame with the full MPOG column schema.
 
-    Each row should be a dict with any subset of MPOG ProcedureList fields.
-    Missing fields are filled with pd.NA.
+    Each row should be a positional tuple matching the schema column order.
+    Short rows are padded with ``NaN`` by pandas.
     """
     columns = [
         "MPOG_Case_ID",

@@ -907,7 +907,7 @@ def _run_review_classic(
     Args:
         queue: Ordered list of ``ReviewCase`` instances to be reviewed in this session.
         runtime: The ``ReviewRuntime`` containing configuration and shared state for the
-        session.
+            session.
     Returns:
         ReviewSessionMetrics with counts of reviewed, accepted, and skipped cases.
     """

@@ -206,7 +206,6 @@ def main() -> None:
         f"Found [cyan]{len(pairs)}[/cyan] residents with both case and procedure files"
     )
 
-    workers: int = args.workers
     config = ProcessConfig(
         output_dir=output_dir,
         columns=ColumnMap(),
@@ -214,6 +213,7 @@ def main() -> None:
     )
     total_cases = 0
     errors: list[tuple[str, str]] = []
+    orphan_notices: list[tuple[str, int, str]] = []
 
     with Progress(
         SpinnerColumn(),
@@ -228,13 +228,30 @@ def main() -> None:
 
         # Parallel: each worker process gets its own Python interpreter and GIL,
         # providing true CPU parallelism that threads cannot achieve.
-        with ProcessPoolExecutor(max_workers=workers) as executor:
+        with ProcessPoolExecutor(max_workers=args.workers) as executor:
             futures = {
                 executor.submit(process_resident, pair, config): pair[0]
                 for pair in pairs
             }
-            for _future in as_completed(futures):
+            for future in as_completed(futures):
+                resident_id = futures[future]
+                try:
+                    cases_written, orphan_notice = future.result()
+                    total_cases += cases_written
+                    if orphan_notice is not None:
+                        orphan_notices.append(orphan_notice)
+                except Exception as e:
+                    logger.exception(
+                        "Failed processing resident %s: %s", resident_id, e
+                    )
+                    errors.append((resident_id, str(e)))
                 progress.advance(task)
+
+    for resident_id, orphan_count, standalone_name in orphan_notices:
+        console.print(
+            f"  [yellow]Note:[/yellow] {resident_id}: {orphan_count} orphan "
+            f"procedure(s) → {standalone_name}"
+        )
 
     console.print(
         f"\n[green]Done.[/green] Processed [cyan]{len(pairs) - len(errors)}[/cyan] "
