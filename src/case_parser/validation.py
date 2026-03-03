@@ -341,17 +341,15 @@ class ValidationReport:
         rows = []
         for case in self.cases:
             summary = case.get_validation_summary()
-            rows.append(
-                {
-                    "Case ID": summary["case_id"] or "",
-                    "Has Warnings": "Yes" if summary["has_warnings"] else "No",
-                    "Warning Count": summary["warning_count"],
-                    "Warnings": "; ".join(summary["warnings"]),
-                    "Confidence Score": f"{summary['confidence_score']:.3f}",
-                    "Low Confidence": "Yes" if summary["is_low_confidence"] else "No",
-                    "Missing Fields": "; ".join(summary["missing_fields"]) or "None",
-                }
-            )
+            rows.append({
+                "Case ID": summary["case_id"] or "",
+                "Has Warnings": "Yes" if summary["has_warnings"] else "No",
+                "Warning Count": summary["warning_count"],
+                "Warnings": "; ".join(summary["warnings"]),
+                "Confidence Score": f"{summary['confidence_score']:.3f}",
+                "Low Confidence": "Yes" if summary["is_low_confidence"] else "No",
+                "Missing Fields": "; ".join(summary["missing_fields"]) or "None",
+            })
         return pd.DataFrame(rows)
 
     def save_report(self, output_path: str | Path, output_format: str = "text") -> None:

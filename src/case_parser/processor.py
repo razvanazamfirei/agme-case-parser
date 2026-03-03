@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import logging
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from itertools import starmap
 from typing import Any
 
 import pandas as pd
+from pandas import Series
 
 from .domain import (
     AgeCategory,
@@ -24,7 +26,7 @@ from .extractors import (
 )
 from .ml import get_hybrid_classifier
 from .ml.hybrid import HybridClassifier
-from .models import OUTPUT_COLUMNS, ColumnMap
+from .models import OUTPUT_COLUMNS, STANDALONE_OUTPUT_COLUMNS, ColumnMap
 from .patterns.age_patterns import AGE_RANGES
 from .patterns.anesthesia_patterns import (
     ANESTHESIA_MAPPING,
@@ -33,6 +35,31 @@ from .patterns.anesthesia_patterns import (
 from .patterns.categorization import categorize_procedure
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _ParsedRowMetadata:
+    """Parsed fields derived from a source row before text extraction."""
+
+    timestamp: datetime
+    age_category: AgeCategory | None
+    asa_str: str
+    emergent: bool
+    raw_asa: Any
+    anesthesia_type: AnesthesiaType | None
+    services: list[str]
+    procedure_category: ProcedureCategory
+    procedure_text: Any
+
+
+@dataclass
+class _ExtractionResult:
+    """Extraction results from notes/procedure text."""
+
+    anesthesia_type: AnesthesiaType | None
+    airway_management: list[Any]
+    vascular_access: list[Any]
+    monitoring: list[Any]
 
 
 class CaseProcessor:
@@ -254,9 +281,7 @@ class CaseProcessor:
                 ["Inferred general anesthesia from airway management findings"],
             )
 
-        procedure_upper = (
-            "" if pd.isna(procedure_text) else str(procedure_text).upper()
-        )
+        procedure_upper = "" if pd.isna(procedure_text) else str(procedure_text).upper()
         if any(
             keyword in procedure_upper
             for keyword in MAC_WITHOUT_AIRWAY_PROCEDURE_KEYWORDS
@@ -300,7 +325,139 @@ class CaseProcessor:
             return 0.7, ["No procedure notes available for extraction"]
         return 0.9, []
 
-    def process_row(self, row: pd.Series) -> ParsedCase:  # noqa: PLR0914
+    @staticmethod
+    def _extend_findings(
+        new_findings: list[Any],
+        all_findings: list[Any],
+        confidence_scores: list[float],
+    ) -> None:
+        """Append extraction findings and track their confidence scores."""
+        all_findings.extend(new_findings)
+        confidence_scores.extend(f.confidence for f in new_findings)
+
+    @staticmethod
+    def _split_services(raw_services: Any) -> list[str]:
+        """Split a multiline services field into normalized items."""
+        if pd.isna(raw_services):
+            return []
+        return [item.strip() for item in str(raw_services).split("\n") if item.strip()]
+
+    @staticmethod
+    def _optional_str(value: Any) -> str | None:
+        """Convert non-null values to string and preserve nulls as None."""
+        if pd.isna(value):
+            return None
+        return str(value)
+
+    @staticmethod
+    def _trimmed_optional_str(value: Any, max_length: int) -> str | None:
+        """Convert to string and trim to max_length, preserving nulls."""
+        optional_value = CaseProcessor._optional_str(value)
+        if optional_value is None:
+            return None
+        return optional_value[:max_length]
+
+    @staticmethod
+    def _optional_float(value: Any) -> float | None:
+        """Convert non-null values to float, preserving nulls."""
+        if pd.isna(value):
+            return None
+        return float(str(value))
+
+    @staticmethod
+    def _clean_provider_name(value: Any) -> str | None:
+        """Normalize provider names when present."""
+        if pd.isna(value):
+            return None
+        return clean_names(value)
+
+    @staticmethod
+    def _normalize_nerve_block_type(value: Any) -> str | None:
+        """Normalize optional nerve block field for output."""
+        if pd.isna(value):
+            return None
+        return str(value).strip()
+
+    def _parse_row_metadata(
+        self, row: pd.Series, all_warnings: list[str]
+    ) -> _ParsedRowMetadata:
+        """Parse non-extraction metadata from a source row."""
+        timestamp, date_warnings = self.parse_date(row.get(self.column_map.date))
+        all_warnings.extend(date_warnings)
+
+        age_category, age_warnings = self.determine_age_category(
+            row.get(self.column_map.age)
+        )
+        all_warnings.extend(age_warnings)
+
+        asa_str, emergent, raw_asa = self.get_asa(all_warnings, row)
+        anesthesia_type, anesthesia_warnings = self.map_anesthesia_type(
+            row.get(self.column_map.final_anesthesia_type)
+        )
+        all_warnings.extend(anesthesia_warnings)
+
+        services = self._split_services(row.get(self.column_map.services))
+        procedure_text = row.get(self.column_map.procedure)
+        procedure_category, proc_warnings = self.determine_procedure_category(
+            procedure_text, services
+        )
+        all_warnings.extend(proc_warnings)
+
+        return _ParsedRowMetadata(
+            timestamp=timestamp,
+            age_category=age_category,
+            asa_str=asa_str,
+            emergent=emergent,
+            raw_asa=raw_asa,
+            anesthesia_type=anesthesia_type,
+            services=services,
+            procedure_category=procedure_category,
+            procedure_text=procedure_text,
+        )
+
+    def _extract_case_data(
+        self,
+        notes: Any,
+        metadata: _ParsedRowMetadata,
+        all_warnings: list[str],
+        all_findings: list[Any],
+        confidence_scores: list[float],
+    ) -> _ExtractionResult:
+        """Extract airway/vascular/monitoring findings and inferred type."""
+        airway_mgmt, airway_findings = extract_airway_management(notes)
+        self._extend_findings(airway_findings, all_findings, confidence_scores)
+
+        anesthesia_type, infer_warnings = self._infer_anesthesia_type(
+            metadata.anesthesia_type,
+            airway_mgmt,
+            metadata.procedure_text,
+            metadata.procedure_category,
+        )
+        all_warnings.extend(infer_warnings)
+
+        vascular_access, vascular_findings = extract_vascular_access(notes)
+        self._extend_findings(vascular_findings, all_findings, confidence_scores)
+
+        monitoring, monitoring_findings = extract_monitoring(notes)
+        self._extend_findings(monitoring_findings, all_findings, confidence_scores)
+
+        if metadata.procedure_text:
+            procedure_monitoring, procedure_findings = extract_monitoring(
+                metadata.procedure_text, source_field="procedure"
+            )
+            for monitor in procedure_monitoring:
+                if monitor not in monitoring:
+                    monitoring.append(monitor)
+            self._extend_findings(procedure_findings, all_findings, confidence_scores)
+
+        return _ExtractionResult(
+            anesthesia_type=anesthesia_type,
+            airway_management=airway_mgmt,
+            vascular_access=vascular_access,
+            monitoring=monitoring,
+        )
+
+    def process_row(self, row: pd.Series) -> ParsedCase:
         """Process a single row into a typed ParsedCase.
 
         Args:
@@ -311,20 +468,56 @@ class CaseProcessor:
             ParsedCase with all extracted and categorized data, including
             warnings and a confidence score.
         """
-        all_warnings = []
-        all_findings = []
-        confidence_scores = []
+        all_warnings: list[str] = []
+        all_findings: list[Any] = []
+        confidence_scores: list[float] = []
 
-        # Parse date
-        timestamp, date_warnings = self.parse_date(row.get(self.column_map.date))
-        all_warnings.extend(date_warnings)
-
-        # Parse age
-        age_category, age_warnings = self.determine_age_category(
-            row.get(self.column_map.age)
+        metadata = self._parse_row_metadata(row, all_warnings)
+        notes = row.get(self.column_map.procedure_notes)
+        extracted = self._extract_case_data(
+            notes, metadata, all_warnings, all_findings, confidence_scores
         )
-        all_warnings.extend(age_warnings)
+        overall_confidence, conf_warnings = self._calculate_confidence(
+            confidence_scores, notes
+        )
+        all_warnings.extend(conf_warnings)
 
+        return ParsedCase(
+            raw_date=self._optional_str(row.get(self.column_map.date)),
+            episode_id=self._trimmed_optional_str(
+                row.get(self.column_map.episode_id), max_length=25
+            ),
+            raw_age=self._optional_float(row.get(self.column_map.age)),
+            raw_asa=self._optional_str(metadata.raw_asa),
+            emergent=metadata.emergent,
+            raw_anesthesia_type=self._optional_str(
+                row.get(self.column_map.final_anesthesia_type)
+            ),
+            services=metadata.services,
+            procedure=self._optional_str(metadata.procedure_text),
+            procedure_notes=self._optional_str(notes),
+            responsible_provider=self._clean_provider_name(
+                row.get(self.column_map.anesthesiologist)
+            ),
+            nerve_block_type=self._normalize_nerve_block_type(
+                row.get(self.column_map.nerve_block_type)
+            ),
+            case_date=metadata.timestamp.date(),
+            age_category=metadata.age_category,
+            asa_physical_status=metadata.asa_str,
+            anesthesia_type=extracted.anesthesia_type,
+            procedure_category=metadata.procedure_category,
+            airway_management=extracted.airway_management,
+            vascular_access=extracted.vascular_access,
+            monitoring=extracted.monitoring,
+            extraction_findings=all_findings,
+            parsing_warnings=all_warnings,
+            confidence_score=overall_confidence,
+        )
+
+    def get_asa(
+        self, all_warnings: list[Any], row: Series[Any]
+    ) -> tuple[str, bool, Any]:
         # Handle ASA with emergent flag
         raw_asa = row.get(self.column_map.asa)
         asa_str = "" if pd.isna(raw_asa) else str(raw_asa)
@@ -333,107 +526,7 @@ class CaseProcessor:
         if asa_str and "E" not in asa_str.upper() and emergent:
             asa_str = f"{asa_str}E"
             all_warnings.append("Added 'E' to ASA status based on emergent flag")
-
-        # Parse anesthesia type
-        anesthesia_type, anesthesia_warnings = self.map_anesthesia_type(
-            row.get(self.column_map.final_anesthesia_type)
-        )
-        all_warnings.extend(anesthesia_warnings)
-
-        # Parse services (handle multiline)
-        raw_services = row.get(self.column_map.services)
-        services = []
-        if pd.notna(raw_services):
-            services = [s.strip() for s in str(raw_services).split("\n") if s.strip()]
-
-        # Determine procedure category
-        procedure_category, proc_warnings = self.determine_procedure_category(
-            row.get(self.column_map.procedure), services
-        )
-        all_warnings.extend(proc_warnings)
-
-        # Extract findings from procedure notes
-        notes = row.get(self.column_map.procedure_notes)
-        procedure_text = row.get(self.column_map.procedure)
-
-        airway_mgmt, airway_findings = extract_airway_management(notes)
-        all_findings.extend(airway_findings)
-        if airway_findings:
-            confidence_scores.extend([f.confidence for f in airway_findings])
-
-        anesthesia_type, infer_warnings = self._infer_anesthesia_type(
-            anesthesia_type, airway_mgmt, procedure_text, procedure_category
-        )
-        all_warnings.extend(infer_warnings)
-
-        vascular, vascular_findings = extract_vascular_access(notes)
-        all_findings.extend(vascular_findings)
-        if vascular_findings:
-            confidence_scores.extend([f.confidence for f in vascular_findings])
-
-        # Extract monitoring from both notes and procedure fields
-        monitoring, monitoring_findings = extract_monitoring(notes)
-        all_findings.extend(monitoring_findings)
-        if monitoring_findings:
-            confidence_scores.extend([f.confidence for f in monitoring_findings])
-
-        # Also check procedure field for monitoring (TEE often in procedure list)
-        if procedure_text:
-            monitoring_proc, monitoring_proc_findings = extract_monitoring(
-                procedure_text, source_field="procedure"
-            )
-            for mon in monitoring_proc:
-                if mon not in monitoring:
-                    monitoring.append(mon)
-            all_findings.extend(monitoring_proc_findings)
-            if monitoring_proc_findings:
-                confidence_scores.extend(
-                    [f.confidence for f in monitoring_proc_findings]
-                )
-
-        overall_confidence, conf_warnings = self._calculate_confidence(
-            confidence_scores, notes
-        )
-        all_warnings.extend(conf_warnings)
-
-        # Clean provider name
-        provider = row.get(self.column_map.anesthesiologist)
-        cleaned_provider = clean_names(provider) if not pd.isna(provider) else None
-
-        # Build ParsedCase
-        return ParsedCase(
-            raw_date=str(row.get(self.column_map.date))
-            if not pd.isna(row.get(self.column_map.date))
-            else None,
-            episode_id=str(row.get(self.column_map.episode_id))[:25]
-            if not pd.isna(row.get(self.column_map.episode_id))
-            else None,
-            raw_age=float(str(row.get(self.column_map.age)))
-            if not pd.isna(row.get(self.column_map.age))
-            else None,
-            raw_asa=str(raw_asa) if not pd.isna(raw_asa) else None,
-            emergent=emergent,
-            raw_anesthesia_type=str(row.get(self.column_map.final_anesthesia_type))
-            if not pd.isna(row.get(self.column_map.final_anesthesia_type))
-            else None,
-            services=services,
-            procedure=str(row.get(self.column_map.procedure))
-            if not pd.isna(row.get(self.column_map.procedure))
-            else None,
-            procedure_notes=str(notes) if not pd.isna(notes) else None,
-            responsible_provider=cleaned_provider,
-            case_date=timestamp.date(),
-            age_category=age_category,
-            asa_physical_status=asa_str,
-            anesthesia_type=anesthesia_type,
-            procedure_category=procedure_category,
-            airway_management=airway_mgmt,
-            vascular_access=vascular,
-            monitoring=monitoring,
-            extraction_findings=all_findings,
-            parsing_warnings=all_warnings,
-            confidence_score=overall_confidence,
-        )
+        return asa_str, emergent, raw_asa
 
     def _process_row_safe(self, idx: Any, row: pd.Series) -> ParsedCase:
         """Process a single row, returning an error case on failure.
@@ -526,3 +619,21 @@ class CaseProcessor:
         output_rows = [case.to_output_dict() for case in cases]
         df = pd.DataFrame(output_rows)
         return df[OUTPUT_COLUMNS]
+
+    @staticmethod
+    def procedures_to_dataframe(cases: list[ParsedCase]) -> pd.DataFrame:
+        """Convert standalone procedure cases to a tailored output DataFrame.
+
+        Used for MPOG ProcedureList orphans (nerve blocks, epidurals, etc.)
+        that have no associated surgical case.  Produces the schema defined
+        by STANDALONE_OUTPUT_COLUMNS rather than the standard case log layout.
+
+        Args:
+            cases: ParsedCase objects representing standalone procedures.
+
+        Returns:
+            DataFrame with columns defined by STANDALONE_OUTPUT_COLUMNS.
+        """
+        output_rows = [case.to_standalone_output_dict() for case in cases]
+        df = pd.DataFrame(output_rows)
+        return df[STANDALONE_OUTPUT_COLUMNS]

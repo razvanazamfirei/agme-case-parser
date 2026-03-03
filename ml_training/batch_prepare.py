@@ -52,17 +52,15 @@ def process_single_file(
                 continue
 
             category, warnings = categorize_procedure(procedure, [])
-            cases.append(
-                {
-                    "file": file_path.name,
-                    "procedure": procedure,
-                    "rule_category": category,
-                    "warnings": "; ".join(warnings) if warnings else "",
-                    "age": row.get("AIMS_Patient_Age_Years"),
-                    "asa": row.get("ASA_Status"),
-                    "emergency": row.get("Emergency"),
-                }
-            )
+            cases.append({
+                "file": file_path.name,
+                "procedure": procedure,
+                "rule_category": category,
+                "warnings": "; ".join(warnings) if warnings else "",
+                "age": row.get("AIMS_Patient_Age_Years"),
+                "asa": row.get("ASA_Status"),
+                "emergency": row.get("Emergency"),
+            })
 
         return {
             "file": file_path.name,

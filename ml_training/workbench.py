@@ -10,22 +10,29 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, ClassVar, override
+from typing import TYPE_CHECKING, Any, ClassVar, override
 
 import pandas as pd
 from rich.console import Console, Group
 from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.table import Table
-from utils import run_python_script
 
 from case_parser.ml.predictor import MLPredictor
 from case_parser.patterns.categorization import categorize_procedure
 
 try:
-    from ml_training.utils import CATEGORIES, normalize_category_label
+    from ml_training.utils import (
+        CATEGORIES,
+        normalize_category_label,
+        run_python_script,
+    )
 except ModuleNotFoundError:
-    from utils import CATEGORIES, normalize_category_label
+    from utils import (  # type: ignore[import-not-found]
+        CATEGORIES,
+        normalize_category_label,
+        run_python_script,
+    )
 
 TEXTUAL_AVAILABLE = True
 TEXTUAL_IMPORT_ERROR = ""
@@ -36,14 +43,20 @@ try:
     from textual.events import Key
     from textual.widgets import Static
 except ModuleNotFoundError as exc:
-    App = object
-    ComposeResult = Any
-    Horizontal = object
-    Vertical = object
-    Key = object
-    Static = object
     TEXTUAL_AVAILABLE = False
     TEXTUAL_IMPORT_ERROR = str(exc)
+    if TYPE_CHECKING:
+        from textual.app import App, ComposeResult
+        from textual.containers import Horizontal, Vertical
+        from textual.events import Key
+        from textual.widgets import Static
+    else:
+        App = object
+        ComposeResult = Any
+        Horizontal = object
+        Vertical = object
+        Key = object
+        Static = object
 
 console = Console()
 
@@ -333,32 +346,28 @@ class ReviewApp(App):
 
         header = self.query_one("#top", Static)
         header.update(
-            "\n".join(
-                [
-                    (
-                        f"Case {self.current_index + 1}/{len(self.queue)} | "
-                        f"Source ID: {case.index} | "
-                        f"Confidence: {case.ml_confidence:.2f}"
-                    ),
-                    (
-                        f"Reviewed: {self.metrics.reviewed_this_session} | "
-                        "Accepted recommended: "
-                        f"{self.metrics.accepted_recommended} | "
-                        f"Skipped: {self.metrics.skipped} | "
-                        f"Focus: {focus} | Threshold: {threshold:.2f}"
-                    ),
-                ]
-            )
+            "\n".join([
+                (
+                    f"Case {self.current_index + 1}/{len(self.queue)} | "
+                    f"Source ID: {case.index} | "
+                    f"Confidence: {case.ml_confidence:.2f}"
+                ),
+                (
+                    f"Reviewed: {self.metrics.reviewed_this_session} | "
+                    "Accepted recommended: "
+                    f"{self.metrics.accepted_recommended} | "
+                    f"Skipped: {self.metrics.skipped} | "
+                    f"Focus: {focus} | Threshold: {threshold:.2f}"
+                ),
+            ])
         )
 
         procedure = self.query_one("#procedure", Static)
         procedure.update(
-            "\n\n".join(
-                [
-                    f"[bold]{_procedure_title(case.procedure)}[/bold]",
-                    case.procedure,
-                ]
-            )
+            "\n\n".join([
+                f"[bold]{_procedure_title(case.procedure)}[/bold]",
+                case.procedure,
+            ])
         )
 
         rule_panel = self.query_one("#rule_panel", Static)
@@ -372,26 +381,22 @@ class ReviewApp(App):
         ml_panel = self.query_one("#ml_panel", Static)
         ml_panel.update(
             _dim_if_needed(
-                "\n".join(
-                    [
-                        "[bold]ML-based Assessment[/bold]",
-                        case.ml_prediction,
-                        f"Confidence: {case.ml_confidence:.2f}",
-                    ]
-                ),
+                "\n".join([
+                    "[bold]ML-based Assessment[/bold]",
+                    case.ml_prediction,
+                    f"Confidence: {case.ml_confidence:.2f}",
+                ]),
                 dim=ml_dim,
             )
         )
 
         recommendation = self.query_one("#recommendation", Static)
         recommendation.update(
-            "\n".join(
-                [
-                    "[bold]RECOMMENDATION[/bold]",
-                    f"[bold reverse]{recommended}[/bold reverse]",
-                    f"Source: {_recommendation_source(rule_match, ml_match)}",
-                ]
-            )
+            "\n".join([
+                "[bold]RECOMMENDATION[/bold]",
+                f"[bold reverse]{recommended}[/bold reverse]",
+                f"Source: {_recommendation_source(rule_match, ml_match)}",
+            ])
         )
 
         keys = self.query_one("#keys", Static)
@@ -408,9 +413,9 @@ class ReviewApp(App):
 
         categories = self.query_one("#categories", Static)
         categories.update(
-            "\n".join(
-                [f"{idx:>2}. {category}" for idx, category in enumerate(CATEGORIES, 1)]
-            )
+            "\n".join([
+                f"{idx:>2}. {category}" for idx, category in enumerate(CATEGORIES, 1)
+            ])
         )
 
         self._refresh_status()
@@ -875,7 +880,8 @@ def _render_classic_case(case: ReviewCase, position: int, total: int) -> None:
 def _prompt_review_choice() -> str:
     while True:
         choice = (
-            Prompt.ask(
+            Prompt
+            .ask(
                 f"Choose key (a/f/j/o/1-{len(CATEGORIES)}/s/q)",
                 default="a",
             )
@@ -900,7 +906,8 @@ def _run_review_classic(
 
     Args:
         queue: Ordered list of ``ReviewCase`` instances to be reviewed in this session.
-        runtime: The ``ReviewRuntime`` containing configuration and shared state for the session.
+        runtime: The ``ReviewRuntime`` containing configuration and shared state for the
+        session.
     Returns:
         ReviewSessionMetrics with counts of reviewed, accepted, and skipped cases.
     """

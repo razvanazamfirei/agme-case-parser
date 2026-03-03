@@ -22,7 +22,13 @@ if TYPE_CHECKING:
 from .exceptions import CaseParserError
 from .io import CsvHandler, ExcelHandler, discover_csv_pairs, read_excel
 from .logging_config import setup_logging
-from .models import ColumnMap
+from .models import (
+    FORMAT_TYPE_CASELOG,
+    FORMAT_TYPE_STANDALONE,
+    OUTPUT_FORMAT_VERSION,
+    STANDALONE_OUTPUT_FORMAT_VERSION,
+    ColumnMap,
+)
 from .processor import CaseProcessor
 from .validation import ValidationReport
 
@@ -311,12 +317,13 @@ def process_csv(
 
     if not orphan_df.empty:
         orphan_cases = processor.process_dataframe(orphan_df)
-        orphan_output_df = processor.cases_to_dataframe(orphan_cases)
+        orphan_output_df = processor.procedures_to_dataframe(orphan_cases)
         standalone_path = output_path.with_stem(output_path.stem + "_standalone")
         excel_handler.write_excel(
             orphan_output_df,
             str(standalone_path),
-            fixed_widths={"Original Procedure": 12},
+            format_type=FORMAT_TYPE_STANDALONE,
+            version=STANDALONE_OUTPUT_FORMAT_VERSION,
         )
         console.print(
             f"[cyan]Standalone procedures:[/cyan] {standalone_path} "
@@ -483,7 +490,11 @@ def main() -> None:
             save_validation_report(all_cases, Path(args.validation_report))
 
         excel_handler.write_excel(
-            output_df, str(output_path), fixed_widths={"Original Procedure": 12}
+            output_df,
+            str(output_path),
+            fixed_widths={"Original Procedure": 12},
+            format_type=FORMAT_TYPE_CASELOG,
+            version=OUTPUT_FORMAT_VERSION,
         )
         print_summary(output_path, get_output_summary(output_df))
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import operator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -11,7 +12,12 @@ from openpyxl.utils import get_column_letter
 from pandas import DataFrame
 
 from .extractors import extract_attending
-from .models import TECHNIQUE_RANK, ColumnMap
+from .models import (
+    FORMAT_TYPE_CASELOG,
+    OUTPUT_FORMAT_VERSION,
+    TECHNIQUE_RANK,
+    ColumnMap,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +84,14 @@ class ExcelHandler:
         file_path: str | Path,
         sheet_name: str = "CaseLog",
         fixed_widths: dict[str, int] | None = None,
+        format_type: str = FORMAT_TYPE_CASELOG,
+        version: str = OUTPUT_FORMAT_VERSION,
     ) -> None:
         """Write DataFrame to Excel file with auto-sized columns.
+
+        Writes the data sheet, a visible Info sheet showing the format type and
+        version, and a hidden _meta sheet for machine consumption (e.g. the
+        Chrome extension).
 
         Args:
             df: DataFrame to write.
@@ -88,6 +100,9 @@ class ExcelHandler:
             sheet_name: Name of the worksheet to create.
             fixed_widths: Optional mapping of column name to a fixed character
                 width, bypassing auto-sizing for those columns.
+            format_type: Schema identifier written to Info and _meta sheets
+                (e.g. ``FORMAT_TYPE_CASELOG`` or ``FORMAT_TYPE_STANDALONE``).
+            version: Schema version string written to Info and _meta sheets.
 
         Raises:
             PermissionError: If the file is open in another application.
@@ -100,6 +115,8 @@ class ExcelHandler:
             with pd.ExcelWriter(file_path, engine="openpyxl") as writer:
                 df.to_excel(writer, sheet_name=sheet_name, index=False)
                 self._autosize_columns(writer, df, sheet_name, fixed_widths)
+                self._write_info_sheet(writer, format_type, version)
+                self._write_meta_sheet(writer, format_type, version)
             logger.info("Successfully wrote %d rows to %s", len(df), file_path)
         except PermissionError:
             logger.error(
@@ -109,6 +126,53 @@ class ExcelHandler:
         except Exception as e:
             logger.error("Error writing Excel file %s: %s", file_path, e)
             raise
+
+    @staticmethod
+    def _write_info_sheet(
+        writer: pd.ExcelWriter, format_type: str, version: str
+    ) -> None:
+        """Write a visible Info sheet with human-readable format metadata.
+
+        This sheet lets anyone opening the file immediately see what schema
+        version and format type were used to produce it.
+
+        Args:
+            writer: Active ExcelWriter to write the Info sheet into.
+            format_type: Schema identifier (e.g. ``caselog`` or ``standalone``).
+            version: Schema version string (e.g. ``"1"``).
+        """
+        info_df = pd.DataFrame({
+            "Field": ["Format Type", "Version", "Generated"],
+            "Value": [format_type, version, datetime.now(tz=UTC).date().isoformat()],
+        })
+        info_df.to_excel(writer, sheet_name="Info", index=False)
+
+    @staticmethod
+    def _write_meta_sheet(
+        writer: pd.ExcelWriter, format_type: str, version: str
+    ) -> None:
+        """Write a hidden _meta sheet for machine consumption.
+
+        The Chrome extension reads this sheet to determine which column schema
+        is in use, allowing seamless processing across format versions.
+
+        Schema:
+            key         | value
+            ------------+-----------
+            version     | 1
+            format_type | caselog
+
+        Args:
+            writer: Active ExcelWriter to write the _meta sheet into.
+            format_type: Schema identifier written alongside the version.
+            version: Schema version string.
+        """
+        meta_df = pd.DataFrame({
+            "key": ["version", "format_type"],
+            "value": [version, format_type],
+        })
+        meta_df.to_excel(writer, sheet_name="_meta", index=False)
+        writer.sheets["_meta"].sheet_state = "hidden"
 
     def _autosize_columns(
         self,
@@ -236,8 +300,9 @@ def join_case_and_procedures(
             )
         matched_procs = proc_df[~orphan_mask]
         proc_agg = (
-            matched_procs.groupby("MPOG_Case_ID")
-            .apply(select_primary_technique)
+            matched_procs
+            .groupby("MPOG_Case_ID")
+            .apply(select_primary_technique)  # type: ignore[no-matching-overload]
             .reset_index()
         )
     else:
@@ -366,32 +431,48 @@ class CsvHandler:
 
         Orphan procedures are ProcedureList entries whose MPOG_Case_ID has no
         matching case in the CaseList (e.g., standalone labor epidurals, peripheral
-        nerve catheters). They carry only MPOG_Case_ID and ProcedureName.
+        nerve catheters).
+
+        MPOG ProcedureList columns used:
+            MPOG_Case_ID             → episode_id
+            AIMS_Scheduled_DT        → date
+            ASA_Status               → asa
+            Emergency                → emergent
+            ProcedureName            → final_anesthesia_type (anesthesia type hint)
+            PrimaryBlock             → nerve_block_type
+            Details                  → procedure_notes
+            AIMS_Actual_Procedure_Text → procedure
+            AnesAttendingNames       → anesthesiologist
+
+        Age is not present in MPOG ProcedureList exports; that field is left NA.
 
         Args:
-            orphan_df: DataFrame of unmatched ProcedureList rows with at least
-                MPOG_Case_ID and ProcedureName columns.
+            orphan_df: DataFrame of unmatched ProcedureList rows.
 
         Returns:
             DataFrame with columns matching self.column_map field values.
-            Date, age, ASA, anesthesiologist, services, and emergent fields
-            are filled with pd.NA.
         """
         column_map = self.column_map
         result = pd.DataFrame(index=orphan_df.index)
+
         result[column_map.episode_id] = orphan_df.get("MPOG_Case_ID")
-        result[column_map.procedure] = orphan_df.get("ProcedureName")
-        # Use ProcedureName as anesthesia type hint (e.g. "Epidural", "Labor Epidural")
+        result[column_map.date] = orphan_df.get("AIMS_Scheduled_DT")
+        result[column_map.asa] = orphan_df.get("ASA_Status")
+        result[column_map.emergent] = orphan_df.get("Emergency")
         result[column_map.final_anesthesia_type] = orphan_df.get("ProcedureName")
-        # Also as procedure notes so airway/vascular extraction can inspect it
-        result[column_map.procedure_notes] = orphan_df.get("ProcedureName")
-        for col in [
-            column_map.date,
-            column_map.age,
-            column_map.asa,
-            column_map.anesthesiologist,
-            column_map.services,
-            column_map.emergent,
-        ]:
-            result[col] = pd.NA
+        result[column_map.nerve_block_type] = orphan_df.get("PrimaryBlock")
+        result[column_map.procedure_notes] = orphan_df.get("Details")
+        result[column_map.procedure] = orphan_df.get("AIMS_Actual_Procedure_Text")
+        result[column_map.services] = ""
+
+        if "AnesAttendingNames" in orphan_df.columns:
+            result[column_map.anesthesiologist] = orphan_df["AnesAttendingNames"].apply(
+                extract_attending
+            )
+        else:
+            result[column_map.anesthesiologist] = pd.NA
+
+        # Age is not exported in MPOG ProcedureList
+        result[column_map.age] = pd.NA
+
         return result.reset_index(drop=True)

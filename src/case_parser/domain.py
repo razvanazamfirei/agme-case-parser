@@ -9,6 +9,11 @@ from typing import Any
 from pydantic import BaseModel, Field, field_validator
 
 
+def _strip_phi(text: str) -> str:
+    """Remove [PHI] markers and normalize whitespace."""
+    return " ".join(text.replace("[PHI]", "").split())
+
+
 class AgeCategory(StrEnum):
     """Age category classifications for residency requirements."""
 
@@ -103,6 +108,9 @@ class ParsedCase(BaseModel):
     procedure: str | None = Field(description="Procedure description")
     procedure_notes: str | None = Field(description="Free-text procedure notes")
     responsible_provider: str | None = Field(description="Responsible provider name")
+    nerve_block_type: str | None = Field(
+        default=None, description="Nerve block type from MPOG PrimaryBlock field"
+    )
 
     # Parsed/categorized data
     case_date: date = Field(description="Parsed case date")
@@ -198,6 +206,28 @@ class ParsedCase(BaseModel):
             )
             if self.monitoring
             else "",
+        }
+
+    def to_standalone_output_dict(self) -> dict[str, str]:
+        """Convert this case to a standalone-procedure output dictionary.
+
+        Used for MPOG ProcedureList orphans (nerve blocks, epidurals, etc.)
+        that have no matching surgical case. All text fields are stripped of
+        [PHI] markers before output.
+
+        Returns:
+            Dictionary keyed by STANDALONE_OUTPUT_COLUMNS, with empty strings
+            for absent fields.
+        """
+        return {
+            "Case ID": self.episode_id or "",
+            "Case Date": self.case_date.strftime("%m/%d/%Y"),
+            "Supervisor": _strip_phi(self.responsible_provider or ""),
+            "Original Procedure": _strip_phi(self.procedure or ""),
+            "ASA Physical Status": self.asa_physical_status,
+            "Procedure Category": self.procedure_category.value,
+            "Procedure Name": _strip_phi(self.raw_anesthesia_type or ""),
+            "Primary Block": _strip_phi(self.nerve_block_type or ""),
         }
 
     def has_warnings(self) -> bool:

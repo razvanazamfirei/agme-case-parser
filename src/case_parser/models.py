@@ -26,6 +26,7 @@ class ColumnMap:
     procedure_notes: str = "Procedure Notes"
     procedure: str = "Procedure"
     services: str = "Services"
+    nerve_block_type: str = "Nerve Block Type"  # PrimaryBlock from MPOG ProcedureList
 
 
 # Invasiveness ranking for MPOG ProcedureName values (higher = more invasive/complex).
@@ -40,6 +41,16 @@ TECHNIQUE_RANK: dict[str, int] = {
 }
 
 
+# Output format versions — increment the relevant constant whenever the schema
+# changes.  The Chrome extension reads these from the hidden _meta sheet to
+# determine which column layout to expect.
+OUTPUT_FORMAT_VERSION = "1"  # main case-log schema (OUTPUT_COLUMNS)
+STANDALONE_OUTPUT_FORMAT_VERSION = "1"  # standalone procedure schema
+
+# Format-type tokens written to _meta so consumers can tell the two schemas apart.
+FORMAT_TYPE_CASELOG = "caselog"
+FORMAT_TYPE_STANDALONE = "standalone"
+
 # Output column order
 OUTPUT_COLUMNS = [
     "Case ID",
@@ -53,4 +64,17 @@ OUTPUT_COLUMNS = [
     "Procedure Category",
     "Specialized Vascular Access",
     "Specialized Monitoring Techniques",
+]
+
+# Column order for standalone procedure output (nerve blocks, epidurals, etc.)
+# These are MPOG ProcedureList entries with no matching surgical case.
+STANDALONE_OUTPUT_COLUMNS = [
+    "Case ID",
+    "Case Date",
+    "Supervisor",
+    "Original Procedure",
+    "ASA Physical Status",
+    "Procedure Category",
+    "Procedure Name",
+    "Primary Block",
 ]

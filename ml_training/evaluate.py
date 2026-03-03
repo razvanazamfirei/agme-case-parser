@@ -106,15 +106,13 @@ def evaluate_model(model_path: Path, data_path: Path) -> EvaluationSummary:
             agreement_count += 1
             continue
 
-        disagreement_cases.append(
-            {
-                "case_id": idx,
-                "procedure": procedure,
-                "ml_prediction": ml_pred,
-                "rule_prediction": rule_pred,
-                "confidence": ml_conf,
-            }
-        )
+        disagreement_cases.append({
+            "case_id": idx,
+            "procedure": procedure,
+            "ml_prediction": ml_pred,
+            "rule_prediction": rule_pred,
+            "confidence": ml_conf,
+        })
 
     return EvaluationSummary(
         total_cases=len(procedures),

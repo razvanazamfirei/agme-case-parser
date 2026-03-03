@@ -7,6 +7,7 @@ from case_parser.io import (
     CsvHandler,
     discover_csv_pairs,
     join_case_and_procedures,
+    select_primary_technique,
 )
 from case_parser.models import ColumnMap
 
@@ -58,17 +59,15 @@ def test_discover_csv_pairs_unpaired_files_warns(tmp_path, caplog):
 
 def test_normalize_csv_columns_populates_procedure_notes_from_airway_type():
     """CSV v2 airway value should be available for downstream airway extraction."""
-    csv_df = pd.DataFrame(
-        {
-            "MPOG_Case_ID": ["abc-123"],
-            "AIMS_Scheduled_DT": ["2025-01-01 08:00:00"],
-            "AIMS_Patient_Age_Years": [42],
-            "ASA_Status": [2],
-            "AIMS_Actual_Procedure_Text": ["Appendectomy"],
-            "Airway_Type": ["Intubation routine"],
-            "AnesAttendings": ["DOE, JANE@2025-01-01 08:00:00"],
-        }
-    )
+    csv_df = pd.DataFrame({
+        "MPOG_Case_ID": ["abc-123"],
+        "AIMS_Scheduled_DT": ["2025-01-01 08:00:00"],
+        "AIMS_Patient_Age_Years": [42],
+        "ASA_Status": [2],
+        "AIMS_Actual_Procedure_Text": ["Appendectomy"],
+        "Airway_Type": ["Intubation routine"],
+        "AnesAttendings": ["DOE, JANE@2025-01-01 08:00:00"],
+    })
     column_map = ColumnMap()
 
     result = CsvHandler(column_map).normalize_columns(csv_df)
@@ -86,7 +85,10 @@ def _make_case_df(*case_ids):
 
 
 def _make_proc_df(*rows):
-    """Build a ProcedureList DataFrame from (MPOG_Case_ID, ProcedureName) pairs."""
+    """Build a ProcedureList DataFrame from (MPOG_Case_ID, ProcedureName) pairs.
+
+    Remaining ProcedureList columns are left as NaN to keep test fixtures minimal.
+    """
     return pd.DataFrame(rows, columns=["MPOG_Case_ID", "ProcedureName"])
 
 
@@ -129,36 +131,170 @@ def test_join_with_empty_proc_df():
 # --- normalize_orphan_columns ---
 
 
+def _make_full_proc_df(*rows):
+    """Build a ProcedureList DataFrame with the full MPOG column schema.
+
+    Each row should be a dict with any subset of MPOG ProcedureList fields.
+    Missing fields are filled with pd.NA.
+    """
+    columns = [
+        "MPOG_Case_ID",
+        "AIMS_Scheduled_DT",
+        "ASA_Status",
+        "Emergency",
+        "ProcedureName",
+        "PrimaryBlock",
+        "Comment",
+        "Details",
+        "AIMS_Actual_Procedure_Text",
+        "AnesAttendingNames",
+    ]
+    return pd.DataFrame(rows, columns=columns)
+
+
 def test_normalize_orphan_columns_maps_required_columns():
+    """Procedure type and ID map correctly from ProcedureList columns."""
     column_map = ColumnMap()
-    orphan_df = _make_proc_df(
-        ("ORPHAN-1", "Labor Epidural"),
-        ("ORPHAN-2", "Peripheral nerve block"),
+    orphan_df = _make_full_proc_df(
+        (
+            "ORPHAN-1",
+            "2024-03-01 08:00",
+            2,
+            0,
+            "Labor Epidural",
+            pd.NA,
+            pd.NA,
+            "performing provider details",
+            "LABOR, SPONTANEOUS",
+            "SMITH, JANE",
+        ),
+        (
+            "ORPHAN-2",
+            "2024-03-02 09:00",
+            1,
+            0,
+            "Peripheral nerve block",
+            "Femoral nerve block",
+            pd.NA,
+            pd.NA,
+            "KNEE REPLACEMENT",
+            "DOE, JOHN",
+        ),
     )
 
     result = CsvHandler(column_map).normalize_orphan_columns(orphan_df)
 
     assert list(result[column_map.episode_id]) == ["ORPHAN-1", "ORPHAN-2"]
-    assert list(result[column_map.procedure]) == [
-        "Labor Epidural",
-        "Peripheral nerve block",
-    ]
+    # ProcedureName maps to anesthesia type hint
     assert list(result[column_map.final_anesthesia_type]) == [
         "Labor Epidural",
         "Peripheral nerve block",
     ]
-    assert list(result[column_map.procedure_notes]) == [
-        "Labor Epidural",
-        "Peripheral nerve block",
+    # AIMS_Actual_Procedure_Text maps to procedure
+    assert list(result[column_map.procedure]) == [
+        "LABOR, SPONTANEOUS",
+        "KNEE REPLACEMENT",
     ]
+    # PrimaryBlock maps to nerve block type
+    assert pd.isna(result.loc[0, column_map.nerve_block_type])
+    assert result.loc[1, column_map.nerve_block_type] == "Femoral nerve block"
+    # Details maps to procedure notes
+    assert result.loc[0, column_map.procedure_notes] == "performing provider details"
+    assert pd.isna(result.loc[1, column_map.procedure_notes])
+
+
+def test_normalize_orphan_columns_extracts_asa_date_and_attending():
+    """ASA, date, and attending are populated from ProcedureList columns."""
+    column_map = ColumnMap()
+    orphan_df = _make_full_proc_df(
+        (
+            "ORPHAN-1",
+            "2024-03-01 08:00",
+            2,
+            0,
+            "Epidural",
+            pd.NA,
+            pd.NA,
+            pd.NA,
+            "LABOR",
+            "SMITH, JANE",
+        ),
+    )
+
+    result = CsvHandler(column_map).normalize_orphan_columns(orphan_df)
+
+    assert result.loc[0, column_map.asa] == 2
+    assert result.loc[0, column_map.date] == "2024-03-01 08:00"
+    assert result.loc[0, column_map.anesthesiologist] == "SMITH, JANE"
 
 
 def test_normalize_orphan_columns_fills_na_for_demographics():
+    """Age is always NA (not in ProcedureList); date/asa/attending populate from CSV."""
     column_map = ColumnMap()
+    # Minimal fixture with only required columns (as produced by _make_proc_df)
     orphan_df = _make_proc_df(("ORPHAN-1", "Labor Epidural"))
 
     result = CsvHandler(column_map).normalize_orphan_columns(orphan_df)
 
-    assert pd.isna(result.loc[0, column_map.date])
+    # Age is never in ProcedureList
     assert pd.isna(result.loc[0, column_map.age])
+    # With minimal fixture, date and asa are NA (columns absent)
+    assert pd.isna(result.loc[0, column_map.date])
     assert pd.isna(result.loc[0, column_map.asa])
+
+
+# --- select_primary_technique ---
+
+
+def test_select_primary_technique_empty_procedures():
+    """All-NaN ProcedureName column returns Airway_Type=None."""
+    df = pd.DataFrame({"ProcedureName": [pd.NA, pd.NA]})
+    result = select_primary_technique(df)
+    assert result["Airway_Type"] is None
+
+
+def test_select_primary_technique_unknown_rank():
+    """Unknown technique gets rank 0; known technique with higher rank wins."""
+    df = pd.DataFrame({"ProcedureName": ["Unknown Technique", "LMA"]})
+    result = select_primary_technique(df)
+    # LMA has rank 2, "Unknown Technique" has rank 0 → LMA wins
+    assert result["Airway_Type"] == "LMA"
+
+
+def test_select_primary_technique_tie_is_deterministic():
+    """Two techniques with the same rank return a stable result."""
+    df = pd.DataFrame({"ProcedureName": ["Unknown A", "Unknown B"]})
+    result1 = select_primary_technique(df)
+    result2 = select_primary_technique(df)
+    assert result1["Airway_Type"] == result2["Airway_Type"]
+
+
+def test_normalize_columns_fills_missing_optional_columns():
+    """Missing AnesAttendings column is filled with NA by normalize_columns."""
+    csv_df = pd.DataFrame({
+        "MPOG_Case_ID": ["abc-123"],
+        "AIMS_Scheduled_DT": ["2025-01-01"],
+        "AIMS_Patient_Age_Years": [42],
+        "ASA_Status": [2],
+        "AIMS_Actual_Procedure_Text": ["Appendectomy"],
+        "Airway_Type": ["Intubation routine"],
+        # No "AnesAttendings" column
+    })
+    column_map = ColumnMap()
+
+    result = CsvHandler(column_map).normalize_columns(csv_df)
+
+    assert column_map.anesthesiologist in result.columns
+    assert pd.isna(result.loc[0, column_map.anesthesiologist])
+
+
+def test_normalize_orphan_columns_empty_df():
+    """Empty orphan DataFrame returns empty result without error."""
+    column_map = ColumnMap()
+    orphan_df = pd.DataFrame(columns=["MPOG_Case_ID", "ProcedureName"])
+
+    result = CsvHandler(column_map).normalize_orphan_columns(orphan_df)
+
+    assert isinstance(result, pd.DataFrame)
+    assert len(result) == 0
+    assert column_map.episode_id in result.columns

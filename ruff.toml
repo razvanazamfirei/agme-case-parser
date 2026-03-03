@@ -5,7 +5,7 @@ target-version = "py313"
 
 [lint]
   fixable = ["ALL"]
-  ignore = ["PLR2004"]
+  ignore = ["PLR2004", "PLR0913", "PLR0917"]
   preview = true
   select = [
     # "ANN",

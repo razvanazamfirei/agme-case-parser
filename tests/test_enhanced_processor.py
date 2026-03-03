@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import date, datetime
+from unittest.mock import patch
 
 import pandas as pd
 import pytest
@@ -14,7 +16,7 @@ from case_parser.domain import (
     ParsedCase,
     ProcedureCategory,
 )
-from case_parser.models import ColumnMap
+from case_parser.models import OUTPUT_COLUMNS, ColumnMap
 from case_parser.processor import CaseProcessor
 
 
@@ -204,7 +206,9 @@ class TestAnesthesiaTypeMapping:
         assert anesthesia_type == AnesthesiaType.CSE
         assert len(warnings) == 0
 
-    def test_map_peripheral_nerve_block_not_mapped_from_anesthesia_field(self, processor):
+    def test_map_peripheral_nerve_block_not_mapped_from_anesthesia_field(
+        self, processor
+    ):
         """Peripheral nerve block presence should not drive anesthesia type."""
         for variation in ["Block", "PNB", "Peripheral nerve block"]:
             anesthesia_type, warnings = processor.map_anesthesia_type(variation)
@@ -376,20 +380,18 @@ class TestRowProcessing:
 
     def test_process_complete_row(self, processor, default_column_map):
         """Test processing a complete row with all data."""
-        row = pd.Series(
-            {
-                "Date": "08/27/2025",
-                "Episode ID": "12345",
-                "Anesthesiologist": "Dr. Smith, MD",
-                "Age": 45.0,
-                "ASA": "2",
-                "Emergent": "N",
-                "Anesthesia Type": "General",
-                "Procedure": "Hip Replacement",
-                "Services": "ORTHO",
-                "Procedure Notes": "Patient intubated with oral ETT. Direct laryngoscope used.",
-            }
-        )
+        row = pd.Series({
+            "Date": "08/27/2025",
+            "Episode ID": "12345",
+            "Anesthesiologist": "Dr. Smith, MD",
+            "Age": 45.0,
+            "ASA": "2",
+            "Emergent": "N",
+            "Anesthesia Type": "General",
+            "Procedure": "Hip Replacement",
+            "Services": "ORTHO",
+            "Procedure Notes": "Patient intubated with oral ETT. Direct laryngoscope used.",
+        })
 
         case = processor.process_row(row)
 
@@ -404,20 +406,18 @@ class TestRowProcessing:
 
     def test_process_row_with_emergent_asa(self, processor, default_column_map):
         """Test ASA E flag is added when emergent is true."""
-        row = pd.Series(
-            {
-                "Date": "08/27/2025",
-                "Episode ID": "12345",
-                "Anesthesiologist": "Dr. Smith",
-                "Age": 45.0,
-                "ASA": "2",
-                "Emergent": "Y",
-                "Anesthesia Type": "General",
-                "Procedure": "Emergency Surgery",
-                "Services": "GENERAL",
-                "Procedure Notes": None,
-            }
-        )
+        row = pd.Series({
+            "Date": "08/27/2025",
+            "Episode ID": "12345",
+            "Anesthesiologist": "Dr. Smith",
+            "Age": 45.0,
+            "ASA": "2",
+            "Emergent": "Y",
+            "Anesthesia Type": "General",
+            "Procedure": "Emergency Surgery",
+            "Services": "GENERAL",
+            "Procedure Notes": None,
+        })
 
         case = processor.process_row(row)
 
@@ -428,20 +428,18 @@ class TestRowProcessing:
 
     def test_process_row_with_multiline_services(self, processor, default_column_map):
         """Test processing multiline services field."""
-        row = pd.Series(
-            {
-                "Date": "08/27/2025",
-                "Episode ID": "12345",
-                "Anesthesiologist": "Dr. Smith",
-                "Age": 45.0,
-                "ASA": "2",
-                "Emergent": "N",
-                "Anesthesia Type": "General",
-                "Procedure": "Complex Surgery",
-                "Services": "ORTHO\nTRAUMA",
-                "Procedure Notes": None,
-            }
-        )
+        row = pd.Series({
+            "Date": "08/27/2025",
+            "Episode ID": "12345",
+            "Anesthesiologist": "Dr. Smith",
+            "Age": 45.0,
+            "ASA": "2",
+            "Emergent": "N",
+            "Anesthesia Type": "General",
+            "Procedure": "Complex Surgery",
+            "Services": "ORTHO\nTRAUMA",
+            "Procedure Notes": None,
+        })
 
         case = processor.process_row(row)
 
@@ -451,20 +449,18 @@ class TestRowProcessing:
 
     def test_process_row_with_missing_notes(self, processor, default_column_map):
         """Test processing row with missing procedure notes."""
-        row = pd.Series(
-            {
-                "Date": "08/27/2025",
-                "Episode ID": "12345",
-                "Anesthesiologist": "Dr. Smith",
-                "Age": 45.0,
-                "ASA": "2",
-                "Emergent": "N",
-                "Anesthesia Type": "General",
-                "Procedure": "Surgery",
-                "Services": "GENERAL",
-                "Procedure Notes": None,
-            }
-        )
+        row = pd.Series({
+            "Date": "08/27/2025",
+            "Episode ID": "12345",
+            "Anesthesiologist": "Dr. Smith",
+            "Age": 45.0,
+            "ASA": "2",
+            "Emergent": "N",
+            "Anesthesia Type": "General",
+            "Procedure": "Surgery",
+            "Services": "GENERAL",
+            "Procedure Notes": None,
+        })
 
         case = processor.process_row(row)
 
@@ -476,20 +472,18 @@ class TestRowProcessing:
 
     def test_process_row_with_extractions(self, processor, default_column_map):
         """Test processing row with rich extraction data."""
-        row = pd.Series(
-            {
-                "Date": "08/27/2025",
-                "Episode ID": "12345",
-                "Anesthesiologist": "Dr. Smith",
-                "Age": 45.0,
-                "ASA": "2",
-                "Emergent": "N",
-                "Anesthesia Type": "General",
-                "Procedure": "Cardiac Surgery",
-                "Services": "CARDIAC",
-                "Procedure Notes": "Intubated with ETT. Arterial line and central line placed. TEE used.",
-            }
-        )
+        row = pd.Series({
+            "Date": "08/27/2025",
+            "Episode ID": "12345",
+            "Anesthesiologist": "Dr. Smith",
+            "Age": 45.0,
+            "ASA": "2",
+            "Emergent": "N",
+            "Anesthesia Type": "General",
+            "Procedure": "Cardiac Surgery",
+            "Services": "CARDIAC",
+            "Procedure Notes": "Intubated with ETT. Arterial line and central line placed. TEE used.",
+        })
 
         case = processor.process_row(row)
 
@@ -504,20 +498,18 @@ class TestRowProcessing:
         self, processor, default_column_map
     ):
         """When airway is documented but anesthesia type is missing, infer GA."""
-        row = pd.Series(
-            {
-                "Date": "08/27/2025",
-                "Episode ID": "12345",
-                "Anesthesiologist": "Dr. Smith",
-                "Age": 45.0,
-                "ASA": "2",
-                "Emergent": "N",
-                "Anesthesia Type": None,
-                "Procedure": "Surgery",
-                "Services": "GENERAL",
-                "Procedure Notes": "LMA inserted for airway management",
-            }
-        )
+        row = pd.Series({
+            "Date": "08/27/2025",
+            "Episode ID": "12345",
+            "Anesthesiologist": "Dr. Smith",
+            "Age": 45.0,
+            "ASA": "2",
+            "Emergent": "N",
+            "Anesthesia Type": None,
+            "Procedure": "Surgery",
+            "Services": "GENERAL",
+            "Procedure Notes": "LMA inserted for airway management",
+        })
 
         case = processor.process_row(row)
 
@@ -544,20 +536,18 @@ class TestRowProcessing:
         ]
 
         for procedure in procedures:
-            row = pd.Series(
-                {
-                    "Date": "08/27/2025",
-                    "Episode ID": "12345",
-                    "Anesthesiologist": "Dr. Smith",
-                    "Age": 45.0,
-                    "ASA": "2",
-                    "Emergent": "N",
-                    "Anesthesia Type": None,
-                    "Procedure": procedure,
-                    "Services": "GENERAL",
-                    "Procedure Notes": None,
-                }
-            )
+            row = pd.Series({
+                "Date": "08/27/2025",
+                "Episode ID": "12345",
+                "Anesthesiologist": "Dr. Smith",
+                "Age": 45.0,
+                "ASA": "2",
+                "Emergent": "N",
+                "Anesthesia Type": None,
+                "Procedure": procedure,
+                "Services": "GENERAL",
+                "Procedure Notes": None,
+            })
 
             case = processor.process_row(row)
 
@@ -575,28 +565,25 @@ class TestRowProcessing:
         self, processor, default_column_map
     ):
         """Airway documentation should take precedence over MAC procedure inference."""
-        row = pd.Series(
-            {
-                "Date": "08/27/2025",
-                "Episode ID": "12345",
-                "Anesthesiologist": "Dr. Smith",
-                "Age": 45.0,
-                "ASA": "2",
-                "Emergent": "N",
-                "Anesthesia Type": None,
-                "Procedure": "COLONOSCOPY",
-                "Services": "GENERAL",
-                "Procedure Notes": "Patient intubated with oral ETT",
-            }
-        )
+        row = pd.Series({
+            "Date": "08/27/2025",
+            "Episode ID": "12345",
+            "Anesthesiologist": "Dr. Smith",
+            "Age": 45.0,
+            "ASA": "2",
+            "Emergent": "N",
+            "Anesthesia Type": None,
+            "Procedure": "COLONOSCOPY",
+            "Services": "GENERAL",
+            "Procedure Notes": "Patient intubated with oral ETT",
+        })
 
         case = processor.process_row(row)
 
         assert case.anesthesia_type == AnesthesiaType.GENERAL
         assert AirwayManagement.ORAL_ETT in case.airway_management
         assert not any(
-            "Inferred MAC from procedure type without airway documentation"
-            in warning
+            "Inferred MAC from procedure type without airway documentation" in warning
             for warning in case.parsing_warnings
         )
 
@@ -604,20 +591,18 @@ class TestRowProcessing:
         self, processor, default_column_map
     ):
         """Documented airway should still infer GA regardless of block text."""
-        row = pd.Series(
-            {
-                "Date": "08/27/2025",
-                "Episode ID": "12345",
-                "Anesthesiologist": "Dr. Smith",
-                "Age": 45.0,
-                "ASA": "2",
-                "Emergent": "N",
-                "Anesthesia Type": None,
-                "Procedure": "PERIPHERAL NERVE BLOCK",
-                "Services": "ORTHO",
-                "Procedure Notes": "Patient intubated with oral ETT",
-            }
-        )
+        row = pd.Series({
+            "Date": "08/27/2025",
+            "Episode ID": "12345",
+            "Anesthesiologist": "Dr. Smith",
+            "Age": 45.0,
+            "ASA": "2",
+            "Emergent": "N",
+            "Anesthesia Type": None,
+            "Procedure": "PERIPHERAL NERVE BLOCK",
+            "Services": "ORTHO",
+            "Procedure Notes": "Patient intubated with oral ETT",
+        })
 
         case = processor.process_row(row)
 
@@ -628,20 +613,18 @@ class TestRowProcessing:
         self, processor, default_column_map
     ):
         """Block procedure presence alone should not set anesthesia type."""
-        row = pd.Series(
-            {
-                "Date": "08/27/2025",
-                "Episode ID": "12345",
-                "Anesthesiologist": "Dr. Smith",
-                "Age": 45.0,
-                "ASA": "2",
-                "Emergent": "N",
-                "Anesthesia Type": None,
-                "Procedure": "PERIPHERAL NERVE BLOCK",
-                "Services": "ORTHO",
-                "Procedure Notes": None,
-            }
-        )
+        row = pd.Series({
+            "Date": "08/27/2025",
+            "Episode ID": "12345",
+            "Anesthesiologist": "Dr. Smith",
+            "Age": 45.0,
+            "ASA": "2",
+            "Emergent": "N",
+            "Anesthesia Type": None,
+            "Procedure": "PERIPHERAL NERVE BLOCK",
+            "Services": "ORTHO",
+            "Procedure Notes": None,
+        })
 
         case = processor.process_row(row)
 
@@ -656,20 +639,18 @@ class TestRowProcessing:
         self, processor, default_column_map
     ):
         """Remaining blank anesthesia should default to GA for non-obstetric cases."""
-        row = pd.Series(
-            {
-                "Date": "08/27/2025",
-                "Episode ID": "12345",
-                "Anesthesiologist": "Dr. Smith",
-                "Age": 45.0,
-                "ASA": "2",
-                "Emergent": "N",
-                "Anesthesia Type": None,
-                "Procedure": "KNEE ARTHROSCOPY",
-                "Services": "ORTHO",
-                "Procedure Notes": None,
-            }
-        )
+        row = pd.Series({
+            "Date": "08/27/2025",
+            "Episode ID": "12345",
+            "Anesthesiologist": "Dr. Smith",
+            "Age": 45.0,
+            "ASA": "2",
+            "Emergent": "N",
+            "Anesthesia Type": None,
+            "Procedure": "KNEE ARTHROSCOPY",
+            "Services": "ORTHO",
+            "Procedure Notes": None,
+        })
 
         case = processor.process_row(row)
 
@@ -684,20 +665,18 @@ class TestRowProcessing:
     ):
         """Obstetric categories should remain blank when anesthesia is not documented."""
         for procedure in ["CESAREAN DELIVERY ONLY", "LABOR EPIDURAL"]:
-            row = pd.Series(
-                {
-                    "Date": "08/27/2025",
-                    "Episode ID": "12345",
-                    "Anesthesiologist": "Dr. Smith",
-                    "Age": 30.0,
-                    "ASA": "2",
-                    "Emergent": "N",
-                    "Anesthesia Type": None,
-                    "Procedure": procedure,
-                    "Services": "OB",
-                    "Procedure Notes": None,
-                }
-            )
+            row = pd.Series({
+                "Date": "08/27/2025",
+                "Episode ID": "12345",
+                "Anesthesiologist": "Dr. Smith",
+                "Age": 30.0,
+                "ASA": "2",
+                "Emergent": "N",
+                "Anesthesia Type": None,
+                "Procedure": procedure,
+                "Services": "OB",
+                "Procedure Notes": None,
+            })
 
             case = processor.process_row(row)
 
@@ -707,8 +686,7 @@ class TestRowProcessing:
                 ProcedureCategory.VAGINAL_DELIVERY,
             }
             assert any(
-                "Left anesthesia type blank for obstetric procedure category"
-                in warning
+                "Left anesthesia type blank for obstetric procedure category" in warning
                 for warning in case.parsing_warnings
             )
 
@@ -718,34 +696,32 @@ class TestDataFrameProcessing:
 
     def test_process_dataframe(self, processor, default_column_map):
         """Test processing a complete dataframe."""
-        df = pd.DataFrame(
-            [
-                {
-                    "Date": "08/27/2025",
-                    "Episode ID": "12345",
-                    "Anesthesiologist": "Dr. Smith",
-                    "Age": 45.0,
-                    "ASA": "2",
-                    "Emergent": "N",
-                    "Anesthesia Type": "General",
-                    "Procedure": "Surgery A",
-                    "Services": "ORTHO",
-                    "Procedure Notes": "Intubated",
-                },
-                {
-                    "Date": "08/28/2025",
-                    "Episode ID": "12346",
-                    "Anesthesiologist": "Dr. Jones",
-                    "Age": 65.0,
-                    "ASA": "3",
-                    "Emergent": "Y",
-                    "Anesthesia Type": "Spinal",
-                    "Procedure": "Surgery B",
-                    "Services": "CARDIAC",
-                    "Procedure Notes": "TEE used",
-                },
-            ]
-        )
+        df = pd.DataFrame([
+            {
+                "Date": "08/27/2025",
+                "Episode ID": "12345",
+                "Anesthesiologist": "Dr. Smith",
+                "Age": 45.0,
+                "ASA": "2",
+                "Emergent": "N",
+                "Anesthesia Type": "General",
+                "Procedure": "Surgery A",
+                "Services": "ORTHO",
+                "Procedure Notes": "Intubated",
+            },
+            {
+                "Date": "08/28/2025",
+                "Episode ID": "12346",
+                "Anesthesiologist": "Dr. Jones",
+                "Age": 65.0,
+                "ASA": "3",
+                "Emergent": "Y",
+                "Anesthesia Type": "Spinal",
+                "Procedure": "Surgery B",
+                "Services": "CARDIAC",
+                "Procedure Notes": "TEE used",
+            },
+        ])
 
         cases = processor.process_dataframe(df)
 
@@ -756,22 +732,20 @@ class TestDataFrameProcessing:
 
     def test_process_dataframe_with_errors(self, processor, default_column_map):
         """Test processing dataframe with error rows."""
-        df = pd.DataFrame(
-            [
-                {
-                    "Date": "08/27/2025",
-                    "Episode ID": "12345",
-                    "Anesthesiologist": "Dr. Smith",
-                    "Age": 45.0,
-                    "ASA": "2",
-                    "Emergent": "N",
-                    "Anesthesia Type": "General",
-                    "Procedure": "Surgery A",
-                    "Services": "ORTHO",
-                    "Procedure Notes": "Intubated",
-                },
-            ]
-        )
+        df = pd.DataFrame([
+            {
+                "Date": "08/27/2025",
+                "Episode ID": "12345",
+                "Anesthesiologist": "Dr. Smith",
+                "Age": 45.0,
+                "ASA": "2",
+                "Emergent": "N",
+                "Anesthesia Type": "General",
+                "Procedure": "Surgery A",
+                "Services": "ORTHO",
+                "Procedure Notes": "Intubated",
+            },
+        ])
 
         # Process should handle errors gracefully
         cases = processor.process_dataframe(df)
@@ -807,3 +781,92 @@ class TestDataFrameProcessing:
         assert "Case ID" in df.columns
         assert "Case Date" in df.columns
         assert df.iloc[0]["Case ID"] == "12345"
+
+
+_FULL_ROW = {
+    "Date": "08/27/2025",
+    "Episode ID": "12345",
+    "Anesthesiologist": "Dr. Smith",
+    "Age": 45.0,
+    "ASA": "2",
+    "Emergent": "N",
+    "Anesthesia Type": "General",
+    "Procedure": "Hip Replacement",
+    "Services": "ORTHO",
+    "Procedure Notes": None,
+}
+
+
+class TestProcessRowSafe:
+    """Test the error-catching wrapper around process_row."""
+
+    def test_returns_parsed_case_on_success(self, processor):
+        row = pd.Series(_FULL_ROW)
+        case = processor._process_row_safe(0, row)
+
+        assert isinstance(case, ParsedCase)
+        assert case.episode_id == "12345"
+
+    def test_returns_error_case_on_exception(self, processor):
+        row = pd.Series(_FULL_ROW)
+
+        with patch.object(processor, "process_row", side_effect=RuntimeError("boom")):
+            case = processor._process_row_safe(0, row)
+
+        assert case.episode_id is None
+        assert case.confidence_score == 0
+        assert any("Failed to process row" in w for w in case.parsing_warnings)
+
+
+class TestProcessDataframeExtended:
+    """Additional process_dataframe edge cases."""
+
+    def test_raises_for_workers_less_than_1(self, processor):
+        df = pd.DataFrame([_FULL_ROW])
+
+        with pytest.raises(ValueError, match="workers must be at least 1"):
+            processor.process_dataframe(df, workers=0)
+
+    def test_empty_dataframe_returns_empty_list(self, processor):
+        df = pd.DataFrame(columns=list(_FULL_ROW.keys()))
+
+        cases = processor.process_dataframe(df)
+
+        assert cases == []
+
+    def test_parallel_workers_returns_same_result(self, processor):
+        df = pd.DataFrame([_FULL_ROW, {**_FULL_ROW, "Episode ID": "99999"}])
+
+        cases_single = processor.process_dataframe(df, workers=1)
+        cases_parallel = processor.process_dataframe(df, workers=2)
+
+        assert [c.episode_id for c in cases_single] == [
+            c.episode_id for c in cases_parallel
+        ]
+
+    def test_warns_on_missing_columns(self, processor, caplog):
+        df = pd.DataFrame([{"SomeUnknownColumn": "value"}])
+
+        with caplog.at_level(logging.WARNING, logger="case_parser.processor"):
+            processor.process_dataframe(df)
+
+        assert "Missing columns" in caplog.text
+
+    def test_cases_to_dataframe_column_order(self, processor):
+        cases = [
+            ParsedCase(
+                raw_date=None,
+                episode_id="1",
+                raw_age=None,
+                raw_asa=None,
+                raw_anesthesia_type=None,
+                procedure=None,
+                procedure_notes=None,
+                responsible_provider=None,
+                case_date=date(2025, 1, 1),
+            )
+        ]
+
+        df = processor.cases_to_dataframe(cases)
+
+        assert list(df.columns) == OUTPUT_COLUMNS
