@@ -476,52 +476,79 @@ class CaseProcessor:
             ParsedCase with all extracted and categorized data, including
             warnings and a confidence score.
         """
-        all_warnings: list[str] = []
-        all_findings: list[Any] = []
-        confidence_scores: list[float] = []
+        try:
+            all_warnings: list[str] = []
+            all_findings: list[Any] = []
+            confidence_scores: list[float] = []
 
-        metadata = self._parse_row_metadata(row, all_warnings)
-        notes = row.get(self.column_map.procedure_notes)
-        extracted = self._extract_case_data(
-            notes, metadata, all_warnings, all_findings, confidence_scores
-        )
-        overall_confidence, conf_warnings = self._calculate_confidence(
-            confidence_scores, notes
-        )
-        all_warnings.extend(conf_warnings)
+            metadata = self._parse_row_metadata(row, all_warnings)
+            notes = row.get(self.column_map.procedure_notes)
+            extracted = self._extract_case_data(
+                notes, metadata, all_warnings, all_findings, confidence_scores
+            )
+            overall_confidence, conf_warnings = self._calculate_confidence(
+                confidence_scores, notes
+            )
+            all_warnings.extend(conf_warnings)
 
-        return ParsedCase(
-            raw_date=self._optional_str(row.get(self.column_map.date)),
-            episode_id=self._trimmed_optional_str(
-                row.get(self.column_map.episode_id), max_length=25
-            ),
-            raw_age=self._optional_float(row.get(self.column_map.age)),
-            raw_asa=self._optional_str(metadata.raw_asa),
-            emergent=metadata.emergent,
-            raw_anesthesia_type=self._optional_str(
-                row.get(self.column_map.final_anesthesia_type)
-            ),
-            services=metadata.services,
-            procedure=self._optional_str(metadata.procedure_text),
-            procedure_notes=self._optional_str(notes),
-            responsible_provider=self._clean_provider_name(
-                row.get(self.column_map.anesthesiologist)
-            ),
-            nerve_block_type=self._normalize_nerve_block_type(
-                row.get(self.column_map.nerve_block_type)
-            ),
-            case_date=metadata.timestamp.date(),
-            age_category=metadata.age_category,
-            asa_physical_status=metadata.asa_str,
-            anesthesia_type=extracted.anesthesia_type,
-            procedure_category=metadata.procedure_category,
-            airway_management=extracted.airway_management,
-            vascular_access=extracted.vascular_access,
-            monitoring=extracted.monitoring,
-            extraction_findings=all_findings,
-            parsing_warnings=all_warnings,
-            confidence_score=overall_confidence,
-        )
+            return ParsedCase(
+                raw_date=self._optional_str(row.get(self.column_map.date)),
+                episode_id=self._trimmed_optional_str(
+                    row.get(self.column_map.episode_id), max_length=25
+                ),
+                raw_age=self._optional_float(row.get(self.column_map.age)),
+                raw_asa=self._optional_str(metadata.raw_asa),
+                emergent=metadata.emergent,
+                raw_anesthesia_type=self._optional_str(
+                    row.get(self.column_map.final_anesthesia_type)
+                ),
+                services=metadata.services,
+                procedure=self._optional_str(metadata.procedure_text),
+                procedure_notes=self._optional_str(notes),
+                responsible_provider=self._clean_provider_name(
+                    row.get(self.column_map.anesthesiologist)
+                ),
+                nerve_block_type=self._normalize_nerve_block_type(
+                    row.get(self.column_map.nerve_block_type)
+                ),
+                case_date=metadata.timestamp.date(),
+                age_category=metadata.age_category,
+                asa_physical_status=metadata.asa_str,
+                anesthesia_type=extracted.anesthesia_type,
+                procedure_category=metadata.procedure_category,
+                airway_management=extracted.airway_management,
+                vascular_access=extracted.vascular_access,
+                monitoring=extracted.monitoring,
+                extraction_findings=all_findings,
+                parsing_warnings=all_warnings,
+                confidence_score=overall_confidence,
+            )
+        except Exception as e:
+            logger.exception("Error processing row: %s", e)
+            return ParsedCase(
+                raw_date=None,
+                episode_id=None,
+                raw_age=None,
+                raw_asa=None,
+                emergent=False,
+                raw_anesthesia_type=None,
+                services=[],
+                procedure=None,
+                procedure_notes=None,
+                responsible_provider=None,
+                nerve_block_type=None,
+                case_date=datetime(self.default_year, 1, 1, tzinfo=UTC).date(),
+                age_category=None,
+                asa_physical_status="",
+                anesthesia_type=None,
+                procedure_category=ProcedureCategory.OTHER,
+                airway_management=[],
+                vascular_access=[],
+                monitoring=[],
+                extraction_findings=[],
+                parsing_warnings=[f"Failed to process row: {e!s}"],
+                confidence_score=0.0,
+            )
 
     def get_asa(self, all_warnings: list[str], row: pd.Series) -> tuple[str, bool, Any]:
         # Handle ASA with emergent flag
