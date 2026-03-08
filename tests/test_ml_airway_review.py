@@ -182,6 +182,64 @@ def test_select_records_handles_zero_capacity_bucket_limits():
     assert selected[1]["priority_bucket"] == "double_lumen"
 
 
+def test_select_records_can_backfill_from_zero_quota_bucket():
+    bucket_limits = airway_review._review_bucket_limits(2)
+    heap_limits = {
+        bucket: max(limit * 4, 2 if limit == 0 else limit)
+        for bucket, limit in bucket_limits.items()
+    }
+    heaps = {bucket: [] for bucket in airway_review.BUCKET_ORDER}
+
+    airway_review._push_candidate(
+        heaps,
+        heap_limits=heap_limits,
+        record={"case_key": "CASE-GA-1", "priority_bucket": "", "priority_score": 0.0},
+        assessment=airway_review.CaseAssessment(
+            scores={
+                "double_lumen": 0.0,
+                "tube_route": 0.0,
+                "ga_mac": 9.0,
+                "control": 0.0,
+            },
+            review_targets=("ga_mac",),
+            review_reasons=("ga_only_candidate",),
+        ),
+        sequence=0,
+    )
+    airway_review._push_candidate(
+        heaps,
+        heap_limits=heap_limits,
+        record={"case_key": "CASE-GA-2", "priority_bucket": "", "priority_score": 0.0},
+        assessment=airway_review.CaseAssessment(
+            scores={
+                "double_lumen": 0.0,
+                "tube_route": 0.0,
+                "ga_mac": 8.0,
+                "control": 0.0,
+            },
+            review_targets=("ga_mac",),
+            review_reasons=("ga_only_candidate",),
+        ),
+        sequence=1,
+    )
+
+    selected = airway_review._select_records(
+        heaps,
+        bucket_limits=bucket_limits,
+        max_cases=2,
+    )
+
+    assert bucket_limits["ga_mac"] == 0
+    assert [record["case_key"] for record in selected] == [
+        "CASE-GA-1",
+        "CASE-GA-2",
+    ]
+    assert [record["priority_bucket"] for record in selected] == [
+        "ga_mac",
+        "ga_mac",
+    ]
+
+
 def test_build_airway_review_dataframe_from_supervised_pair(tmp_path):
     base_dir = tmp_path / "Output-Supervised"
     case_dir = base_dir / "case-list"

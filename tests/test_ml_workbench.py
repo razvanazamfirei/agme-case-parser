@@ -5,6 +5,8 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import pytest
+
 from case_parser.ml.config import DEFAULT_ML_THRESHOLD
 from ml_training import workbench
 
@@ -43,7 +45,9 @@ def test_run_command_chain_builds_complete_eval_args(tmp_path, monkeypatch):
     eval_data = tmp_path / "run-eval.csv"
 
     monkeypatch.setattr(workbench, "_train_command", lambda _args: 0)
-    monkeypatch.setattr(workbench, "_resolve_eval_data_for_run", lambda _args: eval_data)
+    monkeypatch.setattr(
+        workbench, "_resolve_eval_data_for_run", lambda _args: eval_data
+    )
     monkeypatch.setattr(workbench, "_print_next_review_step", lambda *_args: None)
 
     def fake_evaluate_command(eval_args: argparse.Namespace) -> int:
@@ -125,7 +129,9 @@ def test_run_command_chain_forwards_explicit_eval_label_column(
     eval_data = tmp_path / "run-eval.csv"
 
     monkeypatch.setattr(workbench, "_train_command", lambda _args: 0)
-    monkeypatch.setattr(workbench, "_resolve_eval_data_for_run", lambda _args: eval_data)
+    monkeypatch.setattr(
+        workbench, "_resolve_eval_data_for_run", lambda _args: eval_data
+    )
     monkeypatch.setattr(workbench, "_print_next_review_step", lambda *_args: None)
 
     def fake_evaluate_command(eval_args: argparse.Namespace) -> int:
@@ -149,3 +155,99 @@ def test_run_command_chain_forwards_explicit_eval_label_column(
 
     assert rc == 0
     assert captured["args"].label_column == "human_category"
+
+
+def test_run_and_retrain_parsers_accept_hybrid_threshold():
+    run_args = workbench.build_parser().parse_args([
+        "run",
+        "--hybrid-threshold",
+        "0.55",
+    ])
+    retrain_args = workbench.build_parser().parse_args([
+        "retrain",
+        "--hybrid-threshold",
+        "0.65",
+    ])
+
+    assert run_args.hybrid_threshold == pytest.approx(0.55)
+    assert retrain_args.hybrid_threshold == pytest.approx(0.65)
+
+
+def test_run_command_chain_forwards_explicit_hybrid_threshold(
+    tmp_path,
+    monkeypatch,
+):
+    captured: dict[str, argparse.Namespace] = {}
+    eval_data = tmp_path / "run-eval.csv"
+
+    monkeypatch.setattr(workbench, "_train_command", lambda _args: 0)
+    monkeypatch.setattr(
+        workbench, "_resolve_eval_data_for_run", lambda _args: eval_data
+    )
+    monkeypatch.setattr(workbench, "_print_next_review_step", lambda *_args: None)
+
+    def fake_evaluate_command(eval_args: argparse.Namespace) -> int:
+        captured["args"] = eval_args
+        return 0
+
+    monkeypatch.setattr(workbench, "_evaluate_command", fake_evaluate_command)
+
+    rc = workbench._run_command_chain(
+        argparse.Namespace(
+            model="ml_models/procedure_classifier.pkl",
+            label_column="rule_category",
+            eval_label_column=None,
+            hybrid_threshold=0.55,
+            skip_evaluate=False,
+            eval_data=None,
+            prepared_data="prepared.csv",
+            unseen_data="unseen.csv",
+            skip_split=False,
+        )
+    )
+
+    assert rc == 0
+    assert captured["args"].hybrid_threshold == pytest.approx(0.55)
+
+
+def test_run_review_interface_mentions_classic_fallback_on_tui_failure(monkeypatch):
+    printed: list[str] = []
+    expected = workbench.ReviewSessionMetrics(reviewed_this_session=1)
+    runtime = workbench.ReviewRuntime(
+        paths=workbench.ReviewPaths(
+            model_path=Path("model.pkl"),
+            data_path=Path("data.csv"),
+            output_path=Path("out.csv"),
+            progress_path=Path("progress.json"),
+        ),
+        config=workbench.ReviewConfig(
+            focus="priority",
+            low_confidence=0.8,
+            max_cases=10,
+            ui_mode="tui",
+            resume=False,
+        ),
+        reviewed_indices=set(),
+    )
+
+    monkeypatch.setattr(workbench, "_resolve_review_ui_mode", lambda _config: "tui")
+    monkeypatch.setattr(
+        workbench,
+        "_run_tui_review_session",
+        lambda _queue, _runtime: (_ for _ in ()).throw(RuntimeError("boom")),
+    )
+    monkeypatch.setattr(
+        workbench,
+        "_run_review_classic",
+        lambda _queue, _runtime: expected,
+    )
+    monkeypatch.setattr(
+        workbench.console,
+        "print",
+        lambda message: printed.append(str(message)),
+    )
+
+    result = workbench._run_review_interface([], runtime)
+
+    assert result is expected
+    assert any("falling back to classic mode" in message for message in printed)

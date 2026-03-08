@@ -33,6 +33,7 @@ LABEL_COLUMN_CANDIDATES = (
     "correct_category",
 )
 _OPTIONAL_VALUE_SENTINELS = {"<na>", "nan", "none"}
+_HYBRID_UNCLASSIFIED = "UNCLASSIFIED"
 
 
 @dataclass
@@ -119,6 +120,23 @@ def _normalize_optional_label(value: Any) -> str:
     if text.casefold() in _OPTIONAL_VALUE_SENTINELS:
         return ""
     return normalize_category_label(text)
+
+
+def _normalize_hybrid_prediction(result: Any) -> str:
+    """Normalize one hybrid-classifier output into a stable comparison token."""
+    if result is None:
+        return _HYBRID_UNCLASSIFIED
+
+    category = (
+        result.get("category")
+        if isinstance(result, dict)
+        else getattr(result, "category", None)
+    )
+    if category is None:
+        return _HYBRID_UNCLASSIFIED
+
+    category_value = getattr(category, "value", category)
+    return normalize_category_label(str(category_value))
 
 
 def _print_header(
@@ -227,9 +245,8 @@ def evaluate_model(  # noqa: PLR0914
         label = ""
         if resolved_label_column is not None:
             label = normalized_labels[idx]
-            hybrid_pred = normalize_category_label(
-                hybrid_results[idx]["category"].value
-            )
+            hybrid_result = hybrid_results[idx] if idx < len(hybrid_results) else None
+            hybrid_pred = _normalize_hybrid_prediction(hybrid_result)
             if label:
                 labeled_cases += 1
                 rule_correct += int(rule_pred == label)

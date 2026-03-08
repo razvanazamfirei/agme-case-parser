@@ -66,7 +66,9 @@ def process_single_file(
                 "file": file_path.name,
                 "procedure": procedure,
                 "service_text": service_text,
-                "rule_category": category,
+                "rule_category": (
+                    category.value if category is not None else "Other (procedure cat)"
+                ),
                 "warnings": "; ".join(warnings) if warnings else "",
                 "age": row.get("AIMS_Patient_Age_Years"),
                 "asa": row.get("ASA_Status"),

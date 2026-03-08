@@ -41,3 +41,6 @@ def test_process_single_file_uses_exported_service_text_for_rule_categorization(
         "services": ["CARDIAC", "THOR"],
     }
     assert result["cases"][0]["service_text"] == "CARDIAC\nTHOR"
+    assert result["cases"][0]["rule_category"] == (
+        ProcedureCategory.CARDIAC_WITH_CPB.value
+    )

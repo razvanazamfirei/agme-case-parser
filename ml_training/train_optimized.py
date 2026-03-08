@@ -146,6 +146,8 @@ def _extract_training_arrays(
     service_column: str | None,
 ) -> tuple[list[FeatureInput], np.ndarray[Any, Any], str | None]:
     resolved_service_column = resolve_service_column(df, service_column)
+    if service_column is not None and resolved_service_column is None:
+        raise ValueError(f"Service column not found: {service_column}")
     procedures = df["procedure"].fillna("").astype(str).tolist()
     if resolved_service_column is not None:
         services = df[resolved_service_column].fillna("").astype(str).tolist()
@@ -407,7 +409,8 @@ def main() -> int:
     """Train optimized ML model.
 
     Returns:
-        0 on success, 1 if required columns are missing from the input dataset.
+        0 on success, 1 if required columns are missing from the input dataset
+        or if an explicitly requested service column is unavailable.
     """
     args = build_parser().parse_args()
 
@@ -417,11 +420,15 @@ def main() -> int:
     if not _validate_required_columns(df, args.label_column):
         return 1
 
-    x, y, resolved_service_column = _extract_training_arrays(
-        df,
-        args.label_column,
-        args.service_column,
-    )
+    try:
+        x, y, resolved_service_column = _extract_training_arrays(
+            df,
+            args.label_column,
+            args.service_column,
+        )
+    except ValueError as exception:
+        console.print(f"[red]{exception}[/red]")
+        return 1
     unique_labels, class_counts = _print_class_distribution(y)
     stratify_labels = _resolve_stratify_labels(y, class_counts)
 

@@ -173,9 +173,7 @@ def _review_bucket_limits(max_cases: int) -> dict[str, int]:
         "ga_mac": 0.3,
         "control": 0.1,
     }
-    exact_extras = {
-        bucket: remaining * weights[bucket] for bucket in BUCKET_ORDER
-    }
+    exact_extras = {bucket: remaining * weights[bucket] for bucket in BUCKET_ORDER}
 
     for bucket in BUCKET_ORDER:
         extra = int(exact_extras[bucket])
@@ -430,14 +428,33 @@ def build_airway_review_dataframe(  # noqa: PLR0914
     max_cases: int,
     default_year: int = 2025,
 ) -> pd.DataFrame:
-    """Build the review dataframe from supervised case/procedure exports."""
+    """Build a manual-review dataframe from supervised case/procedure exports.
+
+    Args:
+        base_dir: Directory containing ``case-list/`` and ``procedure-list/``
+            supervised CSV exports.
+        max_cases: Maximum number of review rows to include in the output.
+        default_year: Default year passed to :class:`CaseProcessor` for
+            incomplete date parsing.
+
+    Returns:
+        DataFrame containing selected review candidates in ``REVIEW_COLUMNS``
+        order. Returns an empty DataFrame with those columns when no review
+        candidates are found after parsing.
+
+    Raises:
+        ValueError: If the supervised directory layout is invalid or no paired
+            case/procedure files are found.
+    """
     column_map = ColumnMap()
     csv_handler = CsvHandler(column_map)
     processor = CaseProcessor(column_map, default_year=default_year, use_ml=False)
 
     bucket_limits = _review_bucket_limits(max_cases)
     heap_limits = {
-        bucket: max(limit * 4, limit)
+        bucket: 0
+        if max_cases <= 0
+        else max(limit * 4, max_cases if limit == 0 else limit)
         for bucket, limit in bucket_limits.items()
     }
     heaps = {bucket: [] for bucket in BUCKET_ORDER}

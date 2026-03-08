@@ -1102,7 +1102,10 @@ def _run_review_interface(
     try:
         return _run_tui_review_session(queue, runtime)
     except RuntimeError as exception:
-        console.print(f"[yellow]TUI initialization failed ({exception}).[/yellow]")
+        console.print(
+            "[yellow]TUI initialization failed "
+            f"({exception}); falling back to classic mode.[/yellow]"
+        )
         return _run_review_classic(queue, runtime)
 
 
@@ -1532,7 +1535,16 @@ def _build_eval_args(
     *,
     data: str | Path | None,
 ) -> argparse.Namespace:
-    """Build a complete Namespace for the evaluation command."""
+    """Build a complete Namespace for the evaluation command.
+
+    Args:
+        args: Parsed command arguments from the calling workflow.
+        data: Evaluation dataset path to pass through to the evaluate command.
+
+    Returns:
+        Namespace containing the model path, evaluation data path, optional
+        evaluation label column, and hybrid threshold for chained evaluation.
+    """
     return argparse.Namespace(
         model=args.model,
         data=data,
@@ -1585,7 +1597,15 @@ def _run_command_chain(args: argparse.Namespace) -> int:
 
 
 def _airway_review_set_command(args: argparse.Namespace) -> int:
-    """Run the airway/anesthesia review-set generator."""
+    """Run the airway/anesthesia review-set generator.
+
+    Args:
+        args: Parsed command-line arguments with input/output paths and review
+            set sizing options.
+
+    Returns:
+        Exit code from the airway-review-set script stage.
+    """
     script_path = PROJECT_ROOT / "ml_training" / "airway_review.py"
     argv = [
         "--base-dir",
@@ -1690,6 +1710,15 @@ def _add_eval_label_argument(parser: argparse.ArgumentParser) -> None:
         "--eval-label-column",
         default=None,
         help="Optional ground-truth label column for evaluation only",
+    )
+    parser.add_argument(
+        "--hybrid-threshold",
+        type=float,
+        default=DEFAULT_ML_THRESHOLD,
+        help=(
+            "Hybrid threshold forwarded to chained evaluation "
+            f"(default: {DEFAULT_ML_THRESHOLD:.2f})"
+        ),
     )
 
 

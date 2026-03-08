@@ -82,6 +82,53 @@ def test_build_service_inputs_normalizes_sentinel_service_values():
     assert service_rows == ml_inputs
 
 
+def test_evaluate_model_handles_unclassified_hybrid_results(
+    tmp_path,
+    monkeypatch,
+):
+    csv_path = tmp_path / "review.csv"
+    pd.DataFrame([
+        {
+            "procedure": "CABG",
+            "service_text": "CARDIAC",
+            "human_category": ProcedureCategory.CARDIAC_WITH_CPB.value,
+        },
+        {
+            "procedure": "THORACOTOMY",
+            "service_text": "THOR",
+            "human_category": ProcedureCategory.INTRATHORACIC_NON_CARDIAC.value,
+        },
+    ]).to_csv(csv_path, index=False)
+
+    predictor = _StubPredictor()
+
+    class _HybridWithMissingCategory(_StubHybridClassifier):
+        def classify_many(
+            self,
+            procedure_texts: list[str],
+            services_list: list[list[str]] | None = None,
+        ) -> list[dict[str, object]]:
+            del procedure_texts
+            self.services_list = services_list
+            return [
+                {"category": ProcedureCategory.CARDIAC_WITH_CPB},
+                {"category": None},
+            ]
+
+    monkeypatch.setattr(evaluate.MLPredictor, "load", lambda _path: predictor)
+    monkeypatch.setattr(evaluate, "HybridClassifier", _HybridWithMissingCategory)
+
+    summary = evaluate.evaluate_model(
+        Path("ml_models/procedure_classifier.pkl"),
+        csv_path,
+        label_column="human_category",
+    )
+
+    assert summary.labeled_accuracy is not None
+    assert summary.labeled_accuracy.hybrid_accuracy == pytest.approx(0.5)
+    assert summary.disagreement_cases[0]["hybrid_prediction"] == "UNCLASSIFIED"
+
+
 def test_evaluate_model_reports_labeled_rule_ml_and_hybrid_accuracy(
     tmp_path,
     monkeypatch,
