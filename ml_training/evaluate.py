@@ -14,7 +14,7 @@ from rich.panel import Panel
 from rich.table import Table
 
 from case_parser.ml.config import DEFAULT_ML_THRESHOLD
-from case_parser.ml.hybrid import HybridClassifier
+from case_parser.ml.hybrid import ClassificationResult, HybridClassifier
 from case_parser.ml.inputs import resolve_service_column
 from case_parser.ml.predictor import MLPredictor
 from case_parser.patterns.categorization import categorize_procedure
@@ -91,13 +91,14 @@ def _build_service_inputs(
     df: pd.DataFrame,
     service_col: str | None,
     total_cases: int,
-) -> tuple[list[str] | None, list[list[str]]]:
+) -> tuple[list[list[str]] | None, list[list[str]]]:
     """Return service strings for ML and split rows for rule/hybrid paths."""
     if service_col is None:
         return None, [[] for _ in range(total_cases)]
 
     service_texts = df[service_col].fillna("").astype(str).tolist()
-    return service_texts, [_split_services(value) for value in service_texts]
+    service_rows = [_split_services(value) for value in service_texts]
+    return service_rows, service_rows
 
 
 def _normalize_optional_label(value: Any) -> str:
@@ -188,7 +189,7 @@ def evaluate_model(  # noqa: PLR0914
         procedures,
         services_list=ml_service_inputs,
     )
-    hybrid_results = None
+    hybrid_results: list[ClassificationResult] = []
     if resolved_label_column is not None:
         hybrid_results = HybridClassifier.load(
             model_path,

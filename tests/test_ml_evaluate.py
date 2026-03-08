@@ -18,7 +18,7 @@ class _StubPredictor:
     def predict_with_confidence_many(
         self,
         procedure_texts: list[str],
-        services_list: list[str] | None = None,
+        services_list: list[list[str]] | None = None,
         rule_categories: list[str] | None = None,
         rule_warning_counts: list[int] | None = None,
     ) -> tuple[list[str], list[float]]:
@@ -91,6 +91,6 @@ def test_evaluate_model_reports_labeled_rule_ml_and_hybrid_accuracy(
     assert summary.labeled_accuracy.rule_accuracy == pytest.approx(1.0)
     assert summary.labeled_accuracy.ml_accuracy == pytest.approx(0.5)
     assert summary.labeled_accuracy.hybrid_accuracy == pytest.approx(1.0)
-    assert predictor.services_list == ["CARDIAC", "THOR"]
+    assert predictor.services_list == [["CARDIAC"], ["THOR"]]
     assert hybrid.services_list == [["CARDIAC"], ["THOR"]]
     assert len(summary.disagreement_cases) == 1
