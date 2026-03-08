@@ -74,7 +74,16 @@ def _suppress_sklearn_parallel_warning() -> None:
 
 
 def _get_worker_processor(columns: ColumnMap, use_ml: bool) -> CaseProcessor:
-    """Reuse one CaseProcessor per worker process to avoid repeated model loads."""
+    """
+    Return a cached CaseProcessor instance scoped to the current OS process, the `use_ml` setting, and the provided `columns`.
+    
+    Parameters:
+        columns (ColumnMap): Column mappings used to construct or identify the processor.
+        use_ml (bool): If `True`, returns a processor configured for ML-enhanced categorization.
+    
+    Returns:
+        CaseProcessor: A CaseProcessor instance reused for the current process and settings.
+    """
     cache_key = (os.getpid(), use_ml, columns)
     cached = _WORKER_PROCESSORS.get(cache_key)
     if cached is None:
@@ -126,20 +135,17 @@ def process_resident(
     pairs: tuple[str, Path, Path],
     config: ProcessConfig,
 ) -> tuple[int, tuple[str, int, str] | None]:
-    """Process one resident's files and write output Excel.
-
-    Reuses one ``CaseProcessor`` per worker process to avoid repeatedly loading
-    ML artifacts for each resident.
-
-    Args:
-        pairs: Tuple of (name, case_file, proc_file) where name is the resident
-            identifier (``LAST_FIRST`` format), case_file is the path to the
-            CaseList CSV, and proc_file is the path to the ProcedureList CSV.
-        config: Shared processing configuration (output dir, column map, handlers).
-
+    """
+    Process a single resident's CaseList and ProcedureList and write per-resident Excel outputs.
+    
+    If procedures have no matching cases, writes a standalone procedures workbook named "<FormattedName>_standalone.xlsx". If any cases are produced, writes a case log workbook named "<FormattedName>.xlsx".
+    
+    Parameters:
+        pairs (tuple[str, Path, Path]): (resident_stem, case_file, proc_file) where resident_stem is the file stem in LAST_FIRST format, case_file is the CaseList CSV path, and proc_file is the ProcedureList CSV path.
+        config (ProcessConfig): Processing configuration including output directory, column mapping, and Excel handler.
+    
     Returns:
-        Tuple of (cases_written, orphan_notice) where orphan_notice is
-        ``(name, count, filename)`` when orphan procedures were found, else None.
+        tuple[int, tuple[str, int, str] | None]: (cases_written, orphan_notice) where `orphan_notice` is `(resident_stem, orphan_count, filename)` if orphan procedures were written, otherwise `None`.
     """
     name, case_file, proc_file = pairs
     _suppress_sklearn_parallel_warning()
@@ -188,7 +194,19 @@ def process_resident(
 
 
 def _parse_args() -> argparse.Namespace:
-    """Parse and validate command line arguments."""
+    """
+    Parse and validate command-line options for batch resident processing.
+    
+    This function parses the following options and returns the resulting namespace:
+    - --base-dir: Path to the input directory containing "case-list" and "procedure-list" subdirectories (default: Output-Supervised).
+    - --output-dir: Path where individual Excel files will be written (default: Output-Individual).
+    - --workers: Number of parallel workers to use; must be at least 1 (default: 4).
+    - --use-ml / --no-ml: Enable or disable ML-enhanced procedure categorization (default: enabled).
+    
+    Returns:
+        argparse.Namespace: Parsed arguments with attributes:
+            base_dir (Path), output_dir (Path), workers (int), use_ml (bool).
+    """
     parser = argparse.ArgumentParser(description="Batch process resident case files")
     parser.add_argument(
         "--base-dir",
@@ -257,7 +275,19 @@ def _process_in_parallel(
     config: ProcessConfig,
     workers: int,
 ) -> tuple[int, list[tuple[str, str]], list[tuple[str, int, str]]]:
-    """Run resident processing with backend tuned for the chosen mode."""
+    """
+    Process multiple resident case/procedure file pairs in parallel using an executor chosen by the processing mode.
+    
+    Parameters:
+        pairs (list[tuple[str, Path, Path]]): List of tuples (resident_name, case_file_path, procedure_file_path) to process.
+        config (ProcessConfig): Processing configuration; `config.use_ml` selects a process-based executor when true and a thread-based executor when false.
+        workers (int): Maximum number of concurrent worker threads or processes.
+    
+    Returns:
+        total_cases (int): Total number of case rows written across all processed residents.
+        errors (list[tuple[str, str]]): List of (sanitized_resident_id, error_code) for residents that failed processing.
+        orphan_notices (list[tuple[str, int, str]]): List of (resident_name, orphan_count, orphan_filename) for residents that produced standalone orphan outputs.
+    """
     total_cases = 0
     errors: list[tuple[str, str]] = []
     orphan_notices: list[tuple[str, int, str]] = []
@@ -295,6 +325,11 @@ def _process_in_parallel(
 
 
 def main() -> None:
+    """
+    Orchestrates batch processing of resident case and procedure CSV files and writes per-resident Excel outputs.
+    
+    Validates input directories, creates the output directory, discovers matching resident file pairs, and processes each pair (potentially in parallel) according to the configured processing options. Prints per-resident orphan-procedure notices and a final summary to the console. Exits with status 0 when no matching pairs are found and with status 1 if any resident processing errors occur.
+    """
     _suppress_sklearn_parallel_warning()
     args = _parse_args()
     output_dir: Path = args.output_dir

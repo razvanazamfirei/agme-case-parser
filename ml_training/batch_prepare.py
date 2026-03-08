@@ -31,15 +31,24 @@ console = Console()
 def process_single_file(
     file_path: Path, sample_size: int | None = None
 ) -> dict[str, Any]:
-    """Process a single CSV file and extract cases with rule-based categorization.
-
-    Args:
-        file_path: Path to the CSV file to process.
-        sample_size: Optional maximum number of rows to sample from the file.
-
+    """
+    Extract rule-categorized cases from a CSV file.
+    
+    Parameters:
+        file_path (Path): Path to the CSV file to process.
+        sample_size (int | None): Optional maximum number of rows to sample from the file; if None all rows are processed.
+    
     Returns:
-        Dict with keys "file", "total_rows", "valid_cases", and "cases" on
-        success, or "file" and "error" on failure.
+        dict: On success, a dict with keys:
+            - "file": filename (str)
+            - "total_rows": number of rows read or sampled (int)
+            - "valid_cases": number of extracted cases (int)
+            - "cases": list of case dicts, each containing "file", "procedure", "service_text",
+              "rule_category", "warnings", "age", "asa", and "emergency".
+        On failure, a dict with keys:
+            - "file": filename (str)
+            - "error": stringified exception
+            - "cases": empty list
     """
     try:
         df = pd.read_csv(file_path)

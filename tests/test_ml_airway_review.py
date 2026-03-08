@@ -16,6 +16,15 @@ from ml_training import airway_review
 
 
 def _parsed_case(**overrides) -> ParsedCase:
+    """
+    Create a canonical ParsedCase model populated with typical test values.
+    
+    Parameters:
+        overrides (dict): Mapping of ParsedCase field names to replacement values; any provided keys are applied to the base model before it is returned.
+    
+    Returns:
+        ParsedCase: A ParsedCase instance initialized with default test data, with `overrides` applied.
+    """
     base = ParsedCase(
         raw_date="2025-01-01",
         episode_id="CASE-1",
@@ -105,6 +114,12 @@ def test_assess_case_for_review_does_not_use_generic_lobectomy_as_thoracic():
 def test_stable_fraction_is_strictly_less_than_one(monkeypatch):
     class _FakeHash:
         def hexdigest(self) -> str:
+            """
+            Return a deterministic placeholder SHA-256 hex digest composed of eight 'f' characters followed by fifty-six '0' characters.
+            
+            Returns:
+                str: A 64-character hexadecimal string: 'ffffffff' followed by 56 '0' characters.
+            """
             return "ffffffff" + ("0" * 56)
 
     monkeypatch.setattr(airway_review.hashlib, "sha256", lambda _value: _FakeHash())

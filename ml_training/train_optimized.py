@@ -145,6 +145,23 @@ def _extract_training_arrays(
     label_column: str,
     service_column: str | None,
 ) -> tuple[list[FeatureInput], np.ndarray[Any, Any], str | None]:
+    """
+    Build feature inputs and label array from a dataframe, resolving an optional service column.
+    
+    Parameters:
+        df (pd.DataFrame): Input dataframe containing at least a "procedure" column and the label column.
+        label_column (str): Name of the column to use as target labels; missing values are replaced with "Other (procedure cat)" and normalized.
+        service_column (str | None): Optional user-requested column name for service data; if provided, the function attempts to resolve it in the dataframe.
+    
+    Returns:
+        tuple[list[FeatureInput], np.ndarray[Any, Any], str | None]:
+            - features: List of FeatureInput objects built from procedures and corresponding services.
+            - labels: 1-D numpy array of normalized label strings.
+            - resolved_service_column: The actual service column name found in df, or `None` if no service column is used.
+    
+    Raises:
+        ValueError: If `service_column` is provided but cannot be resolved in `df`.
+    """
     resolved_service_column = resolve_service_column(df, service_column)
     if service_column is not None and resolved_service_column is None:
         raise ValueError(f"Service column not found: {service_column}")
@@ -167,6 +184,16 @@ def _extract_training_arrays(
 def _print_class_distribution(
     labels: np.ndarray[Any, Any],
 ) -> tuple[np.ndarray[Any, Any], pd.Series[Any]]:
+    """
+    Print a table showing each label's count and percentage, and return the labels and their counts.
+    
+    Parameters:
+        labels (np.ndarray[Any, Any]): Array of label values for the dataset.
+    
+    Returns:
+        unique_labels (np.ndarray[Any, Any]): Sorted unique label values present in `labels`.
+        class_counts (pd.Series[Any]): Series mapping each label to its occurrence count.
+    """
     unique_labels, counts = np.unique(labels, return_counts=True)
 
     dist_table = Table(title="Class Distribution", border_style="yellow")
@@ -201,6 +228,19 @@ def _resolve_stratify_labels(
 def _extract_feature_matrices(
     x_train: list[FeatureInput], x_val: list[FeatureInput]
 ) -> tuple[FeatureExtractor, Any, Any]:
+    """
+    Builds a FeatureExtractor, fits it on the training feature inputs, and returns transformed feature matrices for training and validation.
+    
+    Parameters:
+        x_train (list[FeatureInput]): FeatureInput list for training samples used to fit and transform the extractor.
+        x_val (list[FeatureInput]): FeatureInput list for validation samples to be transformed with the fitted extractor.
+    
+    Returns:
+        tuple[FeatureExtractor, Any, Any]: A tuple containing:
+            - feature_extractor: the fitted FeatureExtractor instance.
+            - x_train_features: the feature matrix produced from `x_train`.
+            - x_val_features: the feature matrix produced from `x_val`.
+    """
     feature_extractor = FeatureExtractor()
     with Progress(console=console) as progress:
         task = progress.add_task("Extracting features...", total=1)
@@ -258,15 +298,17 @@ def train_ensemble_model(
     x_val: list[FeatureInput],
     y_val: np.ndarray[Any, Any],
 ) -> TrainArtifacts:
-    """Train candidate models and return the best performer.
-
-    Args:
-        x_train: Training feature matrix.
-        y_train: Training labels corresponding to ``x_train``.
-        x_val: Validation feature matrix.
-        y_val: Validation labels corresponding to ``x_val``.
+    """
+    Train multiple candidate classifiers (logistic regression, random forest, and a voting ensemble) on the provided feature inputs and select the best performer by validation accuracy.
+    
+    Parameters:
+        x_train (list[FeatureInput]): Feature inputs for training.
+        y_train (np.ndarray): Labels for the training set.
+        x_val (list[FeatureInput]): Feature inputs for validation.
+        y_val (np.ndarray): Labels for the validation set.
+    
     Returns:
-        TrainArtifacts containing the best model, feature extractor, score, and name.
+        TrainArtifacts: Container with the selected best model, the fitted FeatureExtractor, the best validation accuracy (`best_score`), and the model name (`best_name`).
     """
     feature_extractor, x_train_features, x_val_features = _extract_feature_matrices(
         x_train,
@@ -358,6 +400,22 @@ def _maybe_run_cross_validation(
     class_counts: pd.Series[Any],
     enabled: bool,
 ) -> None:
+    """
+    Run an optional 5-fold cross-validation on the trained model and print the fold scores.
+    
+    Parameters:
+        artifacts (TrainArtifacts): Trained artifacts containing the model and its feature_extractor.
+        all_features (list[FeatureInput]): Full dataset feature inputs to be transformed for cross-validation.
+        labels (np.ndarray): Label array corresponding to all_features.
+        class_counts (pd.Series): Series of per-class counts used to determine whether cross-validation is allowed.
+        enabled (bool): If False, cross-validation is skipped immediately.
+    
+    Description:
+        If enabled is True and every class has at least five examples, transforms all_features using
+        the artifacts' feature_extractor, runs 5-fold cross-validation with the trained model, and
+        prints the individual fold scores and mean ± 2*std. If the smallest class has fewer than
+        five examples, prints a warning and skips cross-validation.
+    """
     if not enabled:
         return
 
@@ -382,6 +440,28 @@ def _save_model_artifact(
     artifacts: TrainArtifacts,
     metadata_input: ArtifactMetadataInput,
 ) -> None:
+    """
+    Persist the trained pipeline and associated metadata to disk as a pickle file.
+    
+    Parameters:
+        output_path (Path): Filesystem path where the serialized artifact will be written. Parent directories will be created if needed.
+        artifacts (TrainArtifacts): Container holding the trained model, the feature extractor, the best validation score, and the model name.
+        metadata_input (ArtifactMetadataInput): Inputs used to build persisted metadata (label/service column names, label array, and train/validation sample counts).
+    
+    The function writes a pickle containing a dictionary with:
+        - "pipeline": a ProcedureMLPipeline built from `artifacts.model` and `artifacts.feature_extractor`.
+        - "metadata": a mapping with keys:
+            - training_date: ISO-formatted timestamp of save time
+            - training_samples: number of training samples
+            - validation_samples: number of validation samples
+            - validation_accuracy: best validation score (float)
+            - model_type: chosen model name
+            - label_column: name of the label column used
+            - service_column: resolved service column name or `None`
+            - feature_version: feature extractor version (falls back to 1 if missing)
+            - uses_services: `True` if a service column was provided, `False` otherwise
+            - categories: sorted list of observed category labels
+    """
     pipeline = ProcedureMLPipeline(
         model=artifacts.model,
         features=artifacts.feature_extractor,
@@ -406,11 +486,13 @@ def _save_model_artifact(
 
 
 def main() -> int:
-    """Train optimized ML model.
-
+    """
+    Orchestrates the CLI workflow to train an optimized procedure classification model, evaluate it, optionally run cross-validation, and persist the trained pipeline with metadata.
+    
+    This function parses command-line arguments, loads and validates the input CSV, extracts features and labels (respecting an optional service column), splits data into training and validation sets, trains and selects the best model via an ensemble workflow, reports validation metrics, optionally performs 5-fold cross-validation, and saves the serialized pipeline and metadata to the specified output path.
+    
     Returns:
-        0 on success, 1 if required columns are missing from the input dataset
-        or if an explicitly requested service column is unavailable.
+        0 on success, 1 if required columns are missing from the input dataset or if an explicitly requested service column is unavailable.
     """
     args = build_parser().parse_args()
 

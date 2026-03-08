@@ -22,6 +22,17 @@ def test_evaluate_command_uses_defaults_for_optional_eval_args(tmp_path, monkeyp
     )
 
     def fake_run_script_stage(_name, _script_path, argv):
+        """
+        Act as a test double for running a script stage: capture the argv list and indicate successful execution.
+        
+        Parameters:
+            _name: Ignored.
+            _script_path: Ignored.
+            argv: The argument list passed to the script; stored in captured["argv"].
+        
+        Returns:
+            int: Exit code `0` indicating success.
+        """
         captured["argv"] = argv
         return 0
 
@@ -51,6 +62,15 @@ def test_run_command_chain_builds_complete_eval_args(tmp_path, monkeypatch):
     monkeypatch.setattr(workbench, "_print_next_review_step", lambda *_args: None)
 
     def fake_evaluate_command(eval_args: argparse.Namespace) -> int:
+        """
+        Capture evaluation command arguments into the test's captured dictionary.
+        
+        Parameters:
+            eval_args (argparse.Namespace): The evaluation command arguments to capture.
+        
+        Returns:
+            int: `0` to indicate successful capture.
+        """
         captured["args"] = eval_args
         return 0
 
@@ -97,6 +117,15 @@ def test_retrain_command_builds_complete_eval_args(monkeypatch):
     monkeypatch.setattr(workbench, "_run_script_stage", lambda *_args: 0)
 
     def fake_evaluate_command(eval_args: argparse.Namespace) -> int:
+        """
+        Capture evaluation command arguments into the test's captured dictionary.
+        
+        Parameters:
+            eval_args (argparse.Namespace): The evaluation command arguments to capture.
+        
+        Returns:
+            int: `0` to indicate successful capture.
+        """
         captured["args"] = eval_args
         return 0
 
@@ -135,6 +164,15 @@ def test_run_command_chain_forwards_explicit_eval_label_column(
     monkeypatch.setattr(workbench, "_print_next_review_step", lambda *_args: None)
 
     def fake_evaluate_command(eval_args: argparse.Namespace) -> int:
+        """
+        Capture evaluation command arguments into the test's captured dictionary.
+        
+        Parameters:
+            eval_args (argparse.Namespace): The evaluation command arguments to capture.
+        
+        Returns:
+            int: `0` to indicate successful capture.
+        """
         captured["args"] = eval_args
         return 0
 
@@ -187,6 +225,15 @@ def test_run_command_chain_forwards_explicit_hybrid_threshold(
     monkeypatch.setattr(workbench, "_print_next_review_step", lambda *_args: None)
 
     def fake_evaluate_command(eval_args: argparse.Namespace) -> int:
+        """
+        Capture evaluation command arguments into the test's captured dictionary.
+        
+        Parameters:
+            eval_args (argparse.Namespace): The evaluation command arguments to capture.
+        
+        Returns:
+            int: `0` to indicate successful capture.
+        """
         captured["args"] = eval_args
         return 0
 

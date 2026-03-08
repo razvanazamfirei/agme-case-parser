@@ -39,6 +39,14 @@ def test_get_worker_processor_caches_per_column_map(monkeypatch):
             default_year: int,
             use_ml: bool,
         ) -> None:
+            """
+            Initialize the dummy processor and record the provided ColumnMap.
+            
+            Parameters:
+                columns (batch_process.ColumnMap): Column mapping for this processor; appended to the module-level created_columns list.
+                default_year (int): Default year used by the processor.
+                use_ml (bool): Whether to enable ML-based processing for this processor.
+            """
             self.columns = columns
             self.default_year = default_year
             self.use_ml = use_ml

@@ -126,26 +126,70 @@ class CaseAssessment:
 
 
 def _stable_fraction(text: str) -> float:
-    """Return a deterministic pseudo-random fraction in [0, 1)."""
+    """
+    Compute a deterministic pseudo-random fraction in [0, 1) from the given text.
+    
+    Returns:
+        float: A value >= 0 and < 1 deterministically derived from `text`.
+    """
     digest = hashlib.sha256(text.encode("utf-8")).hexdigest()
     return int(digest[:8], 16) / 0x100000000
 
 
 def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:
+    """
+    Check whether any of the provided keywords appear as substrings in the given text.
+    
+    Parameters:
+        text (str): The text to search.
+        keywords (tuple[str, ...]): Substring keywords to look for in `text`.
+    
+    Returns:
+        `True` if any keyword is found in `text`, `False` otherwise.
+    """
     return any(keyword in text for keyword in keywords)
 
 
 def _matches_any_pattern(text: str, patterns: tuple[re.Pattern[str], ...]) -> bool:
+    """
+    Check whether any of the provided compiled regular-expression patterns matches the given text.
+    
+    Parameters:
+        text (str): The text to test against the patterns.
+        patterns (tuple[re.Pattern[str], ...]): A tuple of compiled regular-expression patterns to test.
+    
+    Returns:
+        bool: `True` if at least one pattern matches `text`, `False` otherwise.
+    """
     return any(pattern.search(text) for pattern in patterns)
 
 
 def _build_case_key(source_file: str, case: ParsedCase) -> str:
+    """
+    Builds a compact, human-readable key that uniquely identifies a case within a source file.
+    
+    Parameters:
+        source_file (str): Name or path of the source file containing the case.
+        case (ParsedCase): Parsed case object; its `episode_id` and `procedure` are used.
+    
+    Returns:
+        case_key (str): A colon-separated string in the form `"{source_file}:{episode_id_or_missing}:{procedure_truncated}"` where `episode_id_or_missing` is `episode_id` or `"missing-case-id"` and `procedure_truncated` is the procedure text truncated to 80 characters.
+    """
     case_id = case.episode_id or "missing-case-id"
     procedure = case.procedure or ""
     return f"{source_file}:{case_id}:{procedure[:80]}"
 
 
 def _combined_case_text(case: ParsedCase) -> str:
+    """
+    Combine a case's procedure, procedure notes, and raw anesthesia type into a single uppercase text block.
+    
+    Parameters:
+        case (ParsedCase): Parsed case whose procedure, procedure notes, and raw anesthesia type will be aggregated.
+    
+    Returns:
+        str: Uppercase string containing the non-empty fields joined by newline characters, in the order: procedure, procedure notes, raw anesthesia type.
+    """
     parts = [
         case.procedure or "",
         case.procedure_notes or "",
@@ -155,7 +199,17 @@ def _combined_case_text(case: ParsedCase) -> str:
 
 
 def _review_bucket_limits(max_cases: int) -> dict[str, int]:
-    """Return default bucket quotas for a review run."""
+    """
+    Compute per-bucket quotas for selecting review candidates given a total maximum.
+    
+    Distributes the integer `max_cases` across the buckets in BUCKET_ORDER. If `max_cases` is less than or equal to 0, every bucket quota is 0. If `max_cases` is greater than or equal to the number of buckets, each bucket is guaranteed one slot and the remaining slots are distributed according to predefined weights (double_lumen: 0.3, tube_route: 0.3, ga_mac: 0.3, control: 0.1), with any fractional remainders used to break ties in bucket priority order.
+    
+    Parameters:
+        max_cases (int): Total maximum number of review cases to allocate across buckets.
+    
+    Returns:
+        dict[str, int]: Mapping from each bucket name (from BUCKET_ORDER) to its integer quota.
+    """
     limits = dict.fromkeys(BUCKET_ORDER, 0)
     if max_cases <= 0:
         return limits
@@ -198,7 +252,21 @@ def assess_case_for_review(  # noqa: PLR0912, PLR0915
     *,
     source_file: str,
 ) -> CaseAssessment:
-    """Score one parsed case for the airway/anesthesia review set."""
+    """
+    Compute bucketed review scores and select review targets and reasons for a parsed case.
+    
+    Evaluates the case to produce scores for the buckets: `double_lumen`, `tube_route`, `ga_mac`, and `control`, then determines which buckets should be included in the manual-review set together with concise reason codes explaining those decisions.
+    
+    Parameters:
+        case (ParsedCase): The parsed case to assess.
+        source_file (str): Source filename used to construct a stable case key for deterministic tie-breaking and scoring.
+    
+    Returns:
+        CaseAssessment: An immutable result containing:
+            - `scores`: dict mapping bucket name to its numeric score.
+            - `review_targets`: tuple of bucket names chosen for review (may be empty).
+            - `review_reasons`: tuple of unique short reason strings explaining the scores/selection.
+    """
     text_upper = _combined_case_text(case)
     warnings_upper = "\n".join(case.parsing_warnings).upper()
     case_key = _build_case_key(source_file, case)
@@ -289,7 +357,17 @@ def build_review_record(
     source_file: str,
     assessment: CaseAssessment,
 ) -> dict[str, Any]:
-    """Build one review CSV row from a parsed case."""
+    """
+    Create a dictionary representing a single review CSV row for a parsed case.
+    
+    Parameters:
+        case (ParsedCase): The parsed case to convert into a review record.
+        source_file (str): Source filename used to build the unique case key.
+        assessment (CaseAssessment): Assessment containing per-bucket scores, review targets, and reasons.
+    
+    Returns:
+        dict[str, Any]: Mapping of output column names to values for one CSV row (fields include case_key, source_file, source_case_id, case_date, procedure, procedure_category, raw_anesthesia_type, procedure_notes, predicted_* fields, review_targets, review_reasons, parsing_warnings, and label/reviewer fields).
+    """
     case_key = _build_case_key(source_file, case)
     return {
         "case_key": case_key,
@@ -333,6 +411,20 @@ def _push_candidate(
     assessment: CaseAssessment,
     sequence: int,
 ) -> None:
+    """
+    Pushes a candidate record into per-bucket min-heaps, maintaining heap size limits and keeping higher-scoring entries.
+    
+    Parameters:
+        heaps (dict[str, list[tuple[float, int, dict[str, Any]]]]): Mapping from bucket name to a min-heap of tuples (score, sequence, record).
+        heap_limits (dict[str, int]): Maximum allowed heap size per bucket.
+        record (dict[str, Any]): The review record to insert.
+        assessment (CaseAssessment): Assessment containing per-bucket scores used to decide which buckets to consider.
+        sequence (int): Monotonic sequence number used to break ties when scores are equal.
+    
+    Notes:
+        - For each bucket with a positive score and a positive heap limit, the function inserts (score, sequence, record) into that bucket's heap.
+        - If the heap is at capacity, the function replaces the smallest-scoring item only when the new score is greater than the smallest score.
+    """
     for bucket, score in assessment.scores.items():
         if score <= 0:
             continue
@@ -353,6 +445,30 @@ def _select_records(
     bucket_limits: dict[str, int],
     max_cases: int,
 ) -> list[dict[str, Any]]:
+    """
+    Select final review records from per-bucket candidate heaps while respecting per-bucket quotas and an overall maximum.
+    
+    This function:
+    - Orders candidates within each bucket by descending score and ascending sequence.
+    - Chooses up to `bucket_limits[bucket]` unique cases per bucket in BUCKET_ORDER, assigning each chosen record a `priority_bucket` and `priority_score`.
+    - If the per-bucket pass does not reach `max_cases`, fills remaining slots by selecting the best remaining record per unique case across all buckets (highest score, then lowest sequence), again avoiding duplicates and annotating `priority_bucket` and `priority_score`.
+    
+    Parameters:
+        heaps (dict[str, list[tuple[float, int, dict[str, Any]]]]):
+            Mapping from bucket name to a list of candidate tuples of the form
+            (score, sequence, record). `sequence` is used as a tiebreaker (lower is earlier).
+        bucket_limits (dict[str, int]):
+            Per-bucket selection quotas (number of records to pick from each bucket in the initial pass).
+        max_cases (int):
+            Total number of records to return at most.
+    
+    Returns:
+        list[dict[str, Any]]:
+            Ordered list of selected record dictionaries. Each returned record is a shallow copy of the original
+            `record` with two added keys:
+            - `priority_bucket` (str): the bucket from which the record was selected.
+            - `priority_score` (float): the record's score rounded to 4 decimal places.
+    """
     selected: list[dict[str, Any]] = []
     seen_keys: set[str] = set()
 
@@ -403,6 +519,21 @@ def _select_records(
 
 
 def _discover_pair_paths(base_dir: Path) -> list[tuple[Path, Path]]:
+    """
+    Find paired case-list and procedure-list CSV files under a base directory.
+    
+    Parameters:
+        base_dir (Path): Directory expected to contain "case-list" and
+            "procedure-list" subdirectories.
+    
+    Returns:
+        list[tuple[Path, Path]]: Sorted list of (case_file, procedure_file) tuples
+        for files that share the same base name (after removing expected
+        suffixes) present in both subdirectories.
+    
+    Raises:
+        ValueError: If either "case-list" or "procedure-list" subdirectory is missing.
+    """
     case_dir = base_dir / "case-list"
     proc_dir = base_dir / "procedure-list"
     if not case_dir.exists() or not proc_dir.exists():
@@ -518,7 +649,18 @@ def write_airway_review_set(
     max_cases: int,
     default_year: int = 2025,
 ) -> pd.DataFrame:
-    """Build and write the airway/anesthesia review set."""
+    """
+    Create the airway/anesthesia manual-review DataFrame and write it to CSV at the given output path.
+    
+    Parameters:
+        base_dir (Path): Base directory containing paired `case-list` and `procedure-list` subdirectories with exports.
+        output_path (Path): File path where the resulting CSV will be written; parent directories will be created if needed.
+        max_cases (int): Maximum number of review rows to emit.
+        default_year (int): Fallback year used when parsed dates lack a year.
+    
+    Returns:
+        pd.DataFrame: DataFrame of selected review records, ordered to match REVIEW_COLUMNS.
+    """
     df = build_airway_review_dataframe(
         base_dir=base_dir,
         max_cases=max_cases,
@@ -530,6 +672,13 @@ def write_airway_review_set(
 
 
 def _print_summary(df: pd.DataFrame, output_path: Path) -> None:
+    """
+    Prints a brief summary table showing the output path, total row count, and per-priority-bucket counts.
+    
+    Parameters:
+        df (pd.DataFrame): DataFrame of review records. If non-empty, it is expected to contain a `priority_bucket` column used to compute per-bucket counts.
+        output_path (Path): Path to the CSV output displayed in the summary.
+    """
     table = Table(title="Airway Review Set", border_style="cyan")
     table.add_column("Metric", style="cyan")
     table.add_column("Value")
@@ -543,6 +692,18 @@ def _print_summary(df: pd.DataFrame, output_path: Path) -> None:
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """
+    Create a command-line argument parser for the airway review tool.
+    
+    Adds the following options:
+    - --base-dir: Path to a directory containing `case-list/` and `procedure-list/` (default: DEFAULT_SUPERVISED_DIR).
+    - --output: Path to write the output CSV (default: DEFAULT_OUTPUT).
+    - --max-cases: Maximum number of review rows to emit (default: 600).
+    - --default-year: Fallback year used when parsed case dates lack a year (default: 2025).
+    
+    Returns:
+        argparse.ArgumentParser: The configured argument parser.
+    """
     parser = argparse.ArgumentParser(
         description="Build a focused review set for DLT, GA/MAC, and tube route"
     )
@@ -574,6 +735,14 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
+    """
+    Run the command-line entry point: parse arguments, build and write the airway/anesthesia review CSV, and display a summary panel.
+    
+    This function is intended to be used as the script's main entry point. It parses CLI options, prints a summary panel of the chosen inputs, invokes the review-set construction and write routine, prints a final summary table, and exits.
+    
+    Returns:
+        int: 0 indicating successful completion.
+    """
     parser = build_parser()
     args = parser.parse_args()
 
