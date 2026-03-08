@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import numpy as np
+import pandas as pd
+
 from case_parser.domain import ProcedureCategory
 from case_parser.patterns.approach_patterns import (
     detect_approach,
@@ -10,6 +13,7 @@ from case_parser.patterns.approach_patterns import (
 from case_parser.patterns.categorization import (
     _apply_rule_category,
     _fallback_categories_from_text,
+    _normalize_services,
     categorize_cardiac,
     categorize_intracerebral,
     categorize_obgyn,
@@ -212,6 +216,13 @@ class TestCategorizeProcedure:
         )
         assert category == ProcedureCategory.OTHER
 
+    def test_non_ob_service_does_not_create_obgyn_warning(self):
+        category, warnings = categorize_procedure(
+            "Heart surgery", ["CARDIAC", "OBSERVATION"]
+        )
+        assert category == ProcedureCategory.CARDIAC_WITH_CPB
+        assert warnings == []
+
     def test_apply_rule_category_cardiac(self):
         result = _apply_rule_category("Cardiac", "OFF PUMP CABG")
         assert result == ProcedureCategory.CARDIAC_WITHOUT_CPB
@@ -227,3 +238,9 @@ class TestCategorizeProcedure:
     def test_apply_rule_category_intrathoracic(self):
         result = _apply_rule_category("Intrathoracic non-cardiac", "LUNG RESECTION")
         assert result == ProcedureCategory.INTRATHORACIC_NON_CARDIAC
+
+
+def test_normalize_services_skips_null_and_string_sentinels():
+    assert _normalize_services(["cardiac", None, np.nan, pd.NA, "nan", "None", "<NA>"]) == (
+        "CARDIAC",
+    )

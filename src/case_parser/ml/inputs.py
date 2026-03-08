@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -56,7 +56,7 @@ def parse_int(value: Any, default: int = 0) -> int:
         return default
 
 
-def _coerce_service_alias_value(item: dict[str, Any]) -> str:
+def _coerce_service_alias_value(item: Mapping[str, Any]) -> str:
     """Return the first non-empty service alias from a raw input mapping."""
     for candidate in SERVICE_COLUMN_CANDIDATES:
         if candidate not in item:
@@ -72,7 +72,7 @@ def feature_input_from_raw(item: Any) -> FeatureInput:
     if isinstance(item, FeatureInput):
         return item
 
-    if isinstance(item, dict):
+    if isinstance(item, Mapping):
         return FeatureInput(
             procedure_text=coerce_text(
                 item.get("procedure_text", item.get("procedure", ""))

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pickle  # noqa: S403
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
@@ -30,7 +30,7 @@ class ProcedureMLPipeline:
     @staticmethod
     def _coerce_inputs(procedures: Iterable[Any] | Any) -> list[Any]:
         """Normalize supported single-item or iterable inputs to a list."""
-        if isinstance(procedures, (str, dict, FeatureInput)):
+        if isinstance(procedures, (str, Mapping, FeatureInput)):
             return [procedures]
         return list(procedures)
 

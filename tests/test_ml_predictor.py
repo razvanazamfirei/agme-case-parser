@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import pickle  # noqa: S403
 import warnings
+from collections import UserDict
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from case_parser.ml.config import BASE_DEFAULT_ML_INFERENCE_JOBS
-from case_parser.ml.predictor import MLPredictor
+from case_parser.ml.predictor import MLPredictor, ProcedureMLPipeline
 
 
 @dataclass
@@ -34,6 +35,20 @@ class _DummyModel:
 @dataclass
 class _DummyPipeline:
     model: _DummyModel = field(default_factory=_DummyModel)
+
+
+@dataclass
+class _EchoFeatures:
+    def transform(self, inputs):
+        return inputs
+
+
+@dataclass
+class _EchoModel:
+    classes_: list[str] = field(default_factory=list)
+
+    def predict(self, inputs):
+        return inputs
 
 
 def _write_model(path: Path) -> None:
@@ -78,3 +93,10 @@ def test_load_validates_invalid_explicit_inference_jobs(tmp_path):
     assert predictor.pipeline.model.n_jobs == BASE_DEFAULT_ML_INFERENCE_JOBS
     assert len(caught) == 1
     assert "inference_jobs" in str(caught[0].message)
+
+
+def test_coerce_inputs_treats_mapping_as_single_item():
+    pipeline = ProcedureMLPipeline(_EchoModel(), _EchoFeatures())
+    raw_input = UserDict({"procedure": "CABG"})
+
+    assert pipeline.predict(raw_input) == [raw_input]

@@ -22,6 +22,8 @@ from .procedure_patterns import (
     ProcedureRule,
 )
 
+_SERVICE_SENTINELS = {"", "<NA>", "NAN", "NONE"}
+
 
 def categorize_cardiac(procedure_text: str) -> ProcedureCategory:
     """
@@ -304,8 +306,14 @@ def _normalize_services(services: list[str]) -> tuple[str, ...]:
     """Normalize service values to uppercase immutable tuples for caching."""
     normalized: list[str] = []
     for service in services:
+        try:
+            if bool(pd.isna(service)):
+                continue
+        except (TypeError, ValueError):
+            pass
+
         service_text = str(service).strip().upper()
-        if service_text:
+        if service_text and service_text not in _SERVICE_SENTINELS:
             normalized.append(service_text)
     return tuple(normalized)
 

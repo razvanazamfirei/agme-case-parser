@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections import UserDict
+
 import pandas as pd
 import pytest
 
@@ -52,6 +54,19 @@ def test_feature_input_from_raw_uses_service_alias_fallbacks():
         "service_text": None,
         "Service": ["CARDIAC", None],
     })
+
+    assert result == FeatureInput(
+        procedure_text="CABG",
+        service_text="CARDIAC",
+        rule_category="",
+        rule_warning_count=0,
+    )
+
+
+def test_feature_input_from_raw_handles_mapping_types():
+    result = feature_input_from_raw(
+        UserDict({"procedure": "CABG", "services": ["CARDIAC", None]})
+    )
 
     assert result == FeatureInput(
         procedure_text="CABG",
