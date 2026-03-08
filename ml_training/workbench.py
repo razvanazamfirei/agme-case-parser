@@ -1536,7 +1536,7 @@ def _build_eval_args(
     return argparse.Namespace(
         model=args.model,
         data=data,
-        label_column=getattr(args, "label_column", None),
+        label_column=getattr(args, "eval_label_column", None),
         hybrid_threshold=getattr(args, "hybrid_threshold", DEFAULT_ML_THRESHOLD),
     )
 
@@ -1685,6 +1685,14 @@ def _add_shared_training_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--force", action="store_true")
 
 
+def _add_eval_label_argument(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--eval-label-column",
+        default=None,
+        help="Optional ground-truth label column for evaluation only",
+    )
+
+
 def _configure_train_parser(subparsers: argparse._SubParsersAction) -> None:
     train_parser = subparsers.add_parser(
         "train",
@@ -1814,6 +1822,7 @@ def _configure_run_parser(subparsers: argparse._SubParsersAction) -> None:
             "(if omitted, unseen split is used when available)"
         ),
     )
+    _add_eval_label_argument(run_parser)
 
 
 def _configure_airway_review_set_parser(
@@ -1872,6 +1881,7 @@ def _configure_retrain_parser(subparsers: argparse._SubParsersAction) -> None:
     )
     retrain_parser.add_argument("--model", default=DEFAULT_MODEL_PATH)
     retrain_parser.add_argument("--label-column", default="rule_category")
+    _add_eval_label_argument(retrain_parser)
     retrain_parser.add_argument("--cross-validate", action="store_true")
     retrain_parser.add_argument("--skip-evaluate", action="store_true")
     retrain_parser.add_argument("--force", action="store_true")

@@ -32,6 +32,7 @@ LABEL_COLUMN_CANDIDATES = (
     "review_label",
     "correct_category",
 )
+_OPTIONAL_VALUE_SENTINELS = {"<na>", "nan", "none"}
 
 
 @dataclass
@@ -96,8 +97,14 @@ def _build_service_inputs(
     if service_col is None:
         return None, [[] for _ in range(total_cases)]
 
-    service_texts = df[service_col].fillna("").astype(str).tolist()
-    service_rows = [_split_services(value) for value in service_texts]
+    normalized_services = [
+        _normalize_optional_label(value)
+        for value in df[service_col].tolist()
+    ]
+    service_rows = [
+        _split_services(value) if value else []
+        for value in normalized_services
+    ]
     return service_rows, service_rows
 
 
@@ -108,6 +115,8 @@ def _normalize_optional_label(value: Any) -> str:
 
     text = str(value).strip()
     if not text:
+        return ""
+    if text.casefold() in _OPTIONAL_VALUE_SENTINELS:
         return ""
     return normalize_category_label(text)
 

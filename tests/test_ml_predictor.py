@@ -39,8 +39,7 @@ class _DummyPipeline:
 
 @dataclass
 class _EchoFeatures:
-    @staticmethod
-    def transform(inputs):
+    def transform(self, inputs):
         return inputs
 
 
@@ -48,8 +47,7 @@ class _EchoFeatures:
 class _EchoModel:
     classes_: list[str] = field(default_factory=list)
 
-    @staticmethod
-    def predict(inputs):
+    def predict(self, inputs):
         return inputs
 
 

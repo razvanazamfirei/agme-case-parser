@@ -56,6 +56,32 @@ class _StubHybridClassifier:
         ]
 
 
+@pytest.mark.parametrize("value", ["None", " none ", "<NA>", "NaN", "nan"])
+def test_normalize_optional_label_treats_sentinels_as_missing(value):
+    assert evaluate._normalize_optional_label(value) == ""
+
+
+def test_build_service_inputs_normalizes_sentinel_service_values():
+    df = pd.DataFrame({
+        "service_text": [
+            "CARDIAC\nTHOR",
+            "None",
+            pd.NA,
+            "  <NA>  ",
+            "nan",
+        ]
+    })
+
+    ml_inputs, service_rows = evaluate._build_service_inputs(
+        df,
+        "service_text",
+        total_cases=len(df),
+    )
+
+    assert ml_inputs == [["CARDIAC", "THOR"], [], [], [], []]
+    assert service_rows == ml_inputs
+
+
 def test_evaluate_model_reports_labeled_rule_ml_and_hybrid_accuracy(
     tmp_path,
     monkeypatch,

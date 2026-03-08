@@ -52,7 +52,7 @@ logging.getLogger("case_parser").setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 console = Console()
 
-_WORKER_PROCESSORS: dict[tuple[int, bool], CaseProcessor] = {}
+_WORKER_PROCESSORS: dict[tuple[int, bool, ColumnMap], CaseProcessor] = {}
 _SKLEARN_DELAYED_WARNING_PATTERN = r".*sklearn\.utils\.parallel\.delayed.*"
 
 
@@ -75,7 +75,7 @@ def _suppress_sklearn_parallel_warning() -> None:
 
 def _get_worker_processor(columns: ColumnMap, use_ml: bool) -> CaseProcessor:
     """Reuse one CaseProcessor per worker process to avoid repeated model loads."""
-    cache_key = (os.getpid(), use_ml)
+    cache_key = (os.getpid(), use_ml, columns)
     cached = _WORKER_PROCESSORS.get(cache_key)
     if cached is None:
         cached = CaseProcessor(columns, default_year=2025, use_ml=use_ml)

@@ -56,6 +56,7 @@ def test_run_command_chain_builds_complete_eval_args(tmp_path, monkeypatch):
         argparse.Namespace(
             model="ml_models/procedure_classifier.pkl",
             label_column="rule_category",
+            eval_label_column=None,
             skip_evaluate=False,
             eval_data=None,
             prepared_data="prepared.csv",
@@ -67,7 +68,7 @@ def test_run_command_chain_builds_complete_eval_args(tmp_path, monkeypatch):
     assert rc == 0
     assert captured["args"].model == "ml_models/procedure_classifier.pkl"
     assert captured["args"].data == eval_data
-    assert captured["args"].label_column == "rule_category"
+    assert captured["args"].label_column is None
     assert captured["args"].hybrid_threshold == DEFAULT_ML_THRESHOLD
 
 
@@ -102,6 +103,7 @@ def test_retrain_command_builds_complete_eval_args(monkeypatch):
             retrain_data_output="retrain.csv",
             model="ml_models/procedure_classifier.pkl",
             label_column="human_category",
+            eval_label_column=None,
             cross_validate=False,
             skip_evaluate=False,
             eval_data_output="remaining.csv",
@@ -111,5 +113,39 @@ def test_retrain_command_builds_complete_eval_args(monkeypatch):
     assert rc == 0
     assert captured["args"].model == "ml_models/procedure_classifier.pkl"
     assert captured["args"].data == "remaining.csv"
-    assert captured["args"].label_column == "human_category"
+    assert captured["args"].label_column is None
     assert captured["args"].hybrid_threshold == DEFAULT_ML_THRESHOLD
+
+
+def test_run_command_chain_forwards_explicit_eval_label_column(
+    tmp_path,
+    monkeypatch,
+):
+    captured: dict[str, argparse.Namespace] = {}
+    eval_data = tmp_path / "run-eval.csv"
+
+    monkeypatch.setattr(workbench, "_train_command", lambda _args: 0)
+    monkeypatch.setattr(workbench, "_resolve_eval_data_for_run", lambda _args: eval_data)
+    monkeypatch.setattr(workbench, "_print_next_review_step", lambda *_args: None)
+
+    def fake_evaluate_command(eval_args: argparse.Namespace) -> int:
+        captured["args"] = eval_args
+        return 0
+
+    monkeypatch.setattr(workbench, "_evaluate_command", fake_evaluate_command)
+
+    rc = workbench._run_command_chain(
+        argparse.Namespace(
+            model="ml_models/procedure_classifier.pkl",
+            label_column="rule_category",
+            eval_label_column="human_category",
+            skip_evaluate=False,
+            eval_data=None,
+            prepared_data="prepared.csv",
+            unseen_data="unseen.csv",
+            skip_split=False,
+        )
+    )
+
+    assert rc == 0
+    assert captured["args"].label_column == "human_category"

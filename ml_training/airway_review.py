@@ -338,6 +338,8 @@ def _push_candidate(
     for bucket, score in assessment.scores.items():
         if score <= 0:
             continue
+        if heap_limits[bucket] <= 0:
+            continue
         heap = heaps[bucket]
         item = (score, sequence, record)
         if len(heap) < heap_limits[bucket]:
