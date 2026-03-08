@@ -3,9 +3,20 @@
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import Mock, patch
 
-from case_parser.cli import split_standalone_cases
+import pandas as pd
+
+from case_parser.cli import (
+    _ProcessingOptions,
+    main,
+    process_csv,
+    split_standalone_cases,
+)
 from case_parser.domain import ParsedCase
+from case_parser.models import ColumnMap
 
 
 def _standalone_case(  # noqa: PLR0913
@@ -103,3 +114,101 @@ def test_split_standalone_cases_uses_preserved_raw_block_text():
 
     assert [c.episode_id for c in block_cases] == ["B3"]
     assert neuraxial_cases == []
+
+
+def test_split_standalone_cases_prefers_normalized_peripheral_block_over_text_hint():
+    cases = [
+        _standalone_case(
+            case_id="B4",
+            procedure_name="Unknown Procedure",
+            notes="Lumbar plexus block",
+            block="Lumbar Plexus",
+        ),
+    ]
+
+    block_cases, neuraxial_cases = split_standalone_cases(cases)
+
+    assert [c.episode_id for c in block_cases] == ["B4"]
+    assert neuraxial_cases == []
+
+
+def test_process_csv_returns_standalone_case_count(tmp_path: Path):
+    columns = ColumnMap()
+    options = _ProcessingOptions(
+        default_year=2025,
+        sheet_name=None,
+        use_ml=False,
+        ml_threshold=0.7,
+        workers=1,
+    )
+    processor = Mock()
+    orphan_cases = [
+        _standalone_case(case_id="B5", procedure_name="Peripheral nerve block"),
+        _standalone_case(case_id="N5", procedure_name="Labor Epidural"),
+    ]
+    processor.process_dataframe.side_effect = [[], orphan_cases]
+    processor.cases_to_dataframe.return_value = pd.DataFrame()
+
+    with (
+        patch(
+            "case_parser.cli.CsvHandler.read",
+            return_value=(pd.DataFrame(), pd.DataFrame([{"orphan": True}])),
+        ),
+        patch("case_parser.cli._build_processor", return_value=processor),
+        patch(
+            "case_parser.cli.split_standalone_cases",
+            return_value=([orphan_cases[0]], [orphan_cases[1]]),
+        ),
+        patch("case_parser.cli._write_standalone_output") as write_standalone,
+    ):
+        all_cases, output_df, standalone_case_count = process_csv(
+            input_path=tmp_path,
+            output_path=tmp_path / "out.xlsx",
+            columns=columns,
+            excel_handler=Mock(),
+            options=options,
+        )
+
+    assert all_cases == []
+    assert output_df.empty
+    assert standalone_case_count == 2
+    assert write_standalone.call_count == 2
+
+
+def test_main_uses_standalone_signal_when_no_main_cases(tmp_path: Path):
+    args = SimpleNamespace(
+        input_file=str(tmp_path),
+        output_file=str(tmp_path / "out.xlsx"),
+        default_year=2025,
+        sheet=None,
+        no_ml=True,
+        ml_threshold=0.7,
+        workers=1,
+        v2=True,
+        validation_report=None,
+        log_level="INFO",
+        verbose=False,
+    )
+    parser = Mock()
+    parser.parse_args.return_value = args
+
+    with (
+        patch("case_parser.cli.build_arg_parser", return_value=parser),
+        patch("case_parser.cli.setup_logging"),
+        patch("case_parser.cli.validate_arguments"),
+        patch("case_parser.cli.columns_from_args", return_value=ColumnMap()),
+        patch("case_parser.cli.ExcelHandler", return_value=Mock()),
+        patch(
+            "case_parser.cli.process_csv",
+            return_value=([], pd.DataFrame(), 2),
+        ),
+        patch("case_parser.cli.console.print") as console_print,
+    ):
+        result = main()
+
+    printed_messages = [
+        " ".join(str(arg) for arg in call.args) for call in console_print.call_args_list
+    ]
+    assert result is None
+    assert any("standalone orphan outputs were written" in msg for msg in printed_messages)
+    assert not any("No cases to process" in msg for msg in printed_messages)

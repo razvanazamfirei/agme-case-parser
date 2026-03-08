@@ -37,6 +37,10 @@ from .models import (
     STANDALONE_OUTPUT_FORMAT_VERSION,
     ColumnMap,
 )
+from .patterns.block_site_patterns import (
+    NEURAXIAL_BLOCK_SITE_TERMS,
+    PERIPHERAL_BLOCK_SITE_TERMS,
+)
 from .processor import CaseProcessor
 from .validation import ValidationReport
 
@@ -372,7 +376,7 @@ def process_csv(
     columns: ColumnMap,
     excel_handler: ExcelHandler,
     options: _ProcessingOptions,
-) -> tuple[list[ParsedCase], DataFrame]:
+) -> tuple[list[ParsedCase], DataFrame, int]:
     """Process a CSV v2 directory (MPOG supervised export).
 
     Reads matched CaseList/ProcedureList CSV pairs, processes all cases, and
@@ -389,8 +393,9 @@ def process_csv(
             worker count.
 
     Returns:
-        Tuple of (cases, output_df) for the main matched cases. Standalone
-        orphan procedures are written separately when present.
+        Tuple of (cases, output_df, standalone_case_count) for the main
+        matched cases plus the number of standalone orphan procedures written
+        to separate outputs.
     """
     console.print(
         Panel(
@@ -406,9 +411,11 @@ def process_csv(
     all_cases = processor.process_dataframe(df, workers=options.workers)
     output_df = processor.cases_to_dataframe(all_cases)
 
+    standalone_case_count = 0
     if not orphan_df.empty:
         orphan_cases = processor.process_dataframe(orphan_df, workers=options.workers)
         block_cases, neuraxial_cases = split_standalone_cases(orphan_cases)
+        standalone_case_count = len(block_cases) + len(neuraxial_cases)
 
         _write_standalone_output(
             processor=processor,
@@ -431,7 +438,7 @@ def process_csv(
             ),
         )
 
-    return all_cases, output_df
+    return all_cases, output_df, standalone_case_count
 
 
 def _write_standalone_output(
@@ -489,6 +496,27 @@ def is_block_standalone_case(case: ParsedCase) -> bool:
     return any(hint in search_text for hint in _BLOCK_STANDALONE_HINTS)
 
 
+def _normalized_block_terms(case: ParsedCase) -> set[str]:
+    """Split normalized standalone block-site text into canonical terms."""
+    if not case.nerve_block_type:
+        return set()
+    return {
+        term.strip()
+        for term in case.nerve_block_type.split(";")
+        if term and term.strip()
+    }
+
+
+def _has_normalized_peripheral_block(case: ParsedCase) -> bool:
+    """Return True when normalized standalone block text is peripheral."""
+    return bool(_normalized_block_terms(case) & set(PERIPHERAL_BLOCK_SITE_TERMS))
+
+
+def _has_normalized_neuraxial_block(case: ParsedCase) -> bool:
+    """Return True when normalized standalone block text is neuraxial."""
+    return bool(_normalized_block_terms(case) & set(NEURAXIAL_BLOCK_SITE_TERMS))
+
+
 def split_standalone_cases(
     cases: list[ParsedCase],
 ) -> tuple[list[ParsedCase], list[ParsedCase]]:
@@ -503,11 +531,11 @@ def split_standalone_cases(
     neuraxial_cases: list[ParsedCase] = []
 
     for case in cases:
-        if is_neuraxial_standalone_case(case):
-            neuraxial_cases.append(case)
-            continue
-        if is_block_standalone_case(case) or bool(case.nerve_block_type):
+        if _has_normalized_peripheral_block(case) or is_block_standalone_case(case):
             block_cases.append(case)
+            continue
+        if _has_normalized_neuraxial_block(case) or is_neuraxial_standalone_case(case):
+            neuraxial_cases.append(case)
             continue
         # Intentional fallback for unmatched procedures; see
         # test_split_standalone_cases_defaults_unknown_to_neuraxial_bucket.
@@ -658,8 +686,9 @@ def main() -> None:
             workers=args.workers,
         )
 
+        standalone_case_count = 0
         if args.v2:
-            all_cases, output_df = process_csv(
+            all_cases, output_df, standalone_case_count = process_csv(
                 input_path,
                 output_path,
                 columns,
@@ -674,7 +703,14 @@ def main() -> None:
             )
 
         if not all_cases:
-            console.print("[yellow]Warning:[/yellow] No cases to process")
+            if standalone_case_count:
+                console.print(
+                    "[yellow]Warning:[/yellow] "
+                    "No main cases to process; standalone orphan outputs were "
+                    f"written for {standalone_case_count} procedure(s)"
+                )
+            else:
+                console.print("[yellow]Warning:[/yellow] No cases to process")
             return
 
         if args.validation_report:

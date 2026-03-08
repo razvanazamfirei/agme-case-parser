@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+import pandas as pd
 import pytest
 
 from case_parser.domain import (
@@ -12,7 +13,7 @@ from case_parser.domain import (
     MonitoringTechnique,
     VascularAccess,
 )
-from case_parser.extractors import clean_names
+from case_parser.extractors import clean_names, extract_attending
 from case_parser.patterns import (
     extract_airway_management,
     extract_monitoring,
@@ -168,11 +169,18 @@ class TestHelperFunctions:
 
     def test_clean_names_missing_value(self):
         """Test handling of missing/NaN values."""
-        import pandas as pd
-
         assert clean_names(None) == ""
         assert clean_names(pd.NA) == ""
         assert clean_names(float("nan")) == ""
+
+    def test_clean_names_preserves_literal_nan_string(self):
+        """Literal string values like 'nan' should not be treated as missing."""
+        assert clean_names("nan") == "nan"
+
+    @pytest.mark.parametrize("value", [None, pd.NA, float("nan")])
+    def test_extract_attending_missing_value(self, value):
+        """Missing-value sentinels should collapse to an empty attending string."""
+        assert extract_attending(value) == ""
 
 
 class TestAirwayManagementExtraction:

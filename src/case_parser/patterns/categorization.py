@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 from functools import lru_cache
+from numbers import Real
 
 import pandas as pd
 
@@ -252,7 +253,8 @@ def _fallback_categories_from_text(procedure_text: str) -> list[ProcedureCategor
 
 
 def categorize_procedure(
-    procedure: str | None, services: Sequence[object] | str
+    procedure: str | None,
+    services: object,
 ) -> tuple[ProcedureCategory, list[str]]:
     """
     Categorize a procedure based on services and procedure text.
@@ -265,8 +267,9 @@ def categorize_procedure(
 
     Args:
         procedure: Procedure description text
-        services: Sequence of raw service values or a single raw service
-            string. Missing/null sentinels are ignored during normalization.
+        services: Sequence of raw service values, a single raw service
+            string, or a scalar missing sentinel. Missing/null sentinels are
+            ignored during normalization.
 
     Returns:
         Tuple of (ProcedureCategory, warnings_list)
@@ -282,7 +285,7 @@ def categorize_procedure(
 
 def categorize_procedures(
     procedures: Sequence[str | None],
-    services_list: Sequence[Sequence[object] | str],
+    services_list: Sequence[object],
 ) -> list[tuple[ProcedureCategory, list[str]]]:
     """Categorize multiple procedures while reusing cached normalization."""
     if len(procedures) != len(services_list):
@@ -305,21 +308,32 @@ def _normalize_procedure_text(procedure: str | None) -> str:
     return str(procedure).upper()
 
 
-def _normalize_services(services: Sequence[object] | str) -> tuple[str, ...]:
+def _is_missing_service_scalar(service: object) -> bool:
+    """Return True when a raw services input is a scalar null sentinel."""
+    if service is None or service is pd.NA or service is pd.NaT:
+        return True
+    if isinstance(service, Real):
+        return math.isnan(float(service))
+    return False
+
+
+def _normalize_services(services: object) -> tuple[str, ...]:
     """Normalize raw service values to uppercase immutable tuples for caching."""
-    raw_services: Sequence[object] = (
-        (services,) if isinstance(services, str) else services
-    )
+    if _is_missing_service_scalar(services):
+        return ()
+
+    raw_services: Sequence[object] | tuple[object, ...]
+    if isinstance(services, str):
+        raw_services = (services,)
+    elif isinstance(services, Sequence):
+        raw_services = services
+    else:
+        raw_services = (services,)
 
     normalized: list[str] = []
     for service in raw_services:
-        if service is None or service is pd.NA or service is pd.NaT:
+        if _is_missing_service_scalar(service):
             continue
-        try:
-            if math.isnan(float(service)):
-                continue
-        except (TypeError, ValueError):
-            pass
 
         service_text = str(service).strip().upper()
         if service_text and service_text not in _SERVICE_SENTINELS:

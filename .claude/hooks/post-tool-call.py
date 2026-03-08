@@ -16,6 +16,7 @@ WEBSERVER_HOST = "localhost"
 WEBSERVER_ENDPOINT = "/api/provenance/call"
 PORT_FILE_SUFFIX = "-provenance-port.txt"
 
+
 class ProvenanceHookError(RuntimeError):
     pass
 
@@ -86,12 +87,20 @@ def send_diff_to_webserver(file_path: str, timestamp_ms: int) -> bytes:
             f"Unknown error while sending diff to {url}") from e
 
 
-def extract_file_path(tool_name: str, tool_input: Mapping[str, Any]) -> str:
+def _optional_tool_path(value: object) -> str | None:
+    """Normalize optional tool path inputs to a truthy string or None."""
+    if not isinstance(value, str):
+        return None
+    path = value.strip()
+    return path or None
+
+
+def extract_file_path(tool_name: str, tool_input: Mapping[str, Any]) -> str | None:
     if tool_name in {"Write", "Edit", "MultiEdit"}:
-        return tool_input.get("file_path", "unknown")
+        return _optional_tool_path(tool_input.get("file_path"))
     if tool_name == "NotebookEdit":
-        return tool_input.get("notebook_path", "unknown")
-    return "unknown"
+        return _optional_tool_path(tool_input.get("notebook_path"))
+    return None
 
 
 def excepthook(

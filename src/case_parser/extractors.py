@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import math
 import re
+from numbers import Real
 
 import pandas as pd
 
@@ -36,10 +37,13 @@ def _is_missing_scalar(value: object) -> bool:
     """Return True for scalar missing-value sentinels handled by these helpers."""
     if value is None or value is pd.NA or value is pd.NaT:
         return True
-    try:
-        return math.isnan(float(value))
-    except (TypeError, ValueError):
+    # Preserve literal strings like "nan"; only real scalar null sentinels
+    # should be treated as missing by these helpers.
+    if isinstance(value, (str, bytes)):
         return False
+    if isinstance(value, Real):
+        return math.isnan(float(value))
+    return False
 
 
 def clean_names(name: object) -> str:

@@ -287,3 +287,9 @@ def test_normalize_services_skips_null_and_string_sentinels():
 
 def test_normalize_services_treats_raw_string_as_single_token():
     assert _normalize_services("cardiac") == ("CARDIAC",)
+
+
+def test_normalize_services_scalar_missing_returns_empty_tuple():
+    assert _normalize_services(None) == ()
+    assert _normalize_services(pd.NA) == ()
+    assert _normalize_services(np.nan) == ()

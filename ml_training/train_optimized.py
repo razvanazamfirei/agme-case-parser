@@ -21,9 +21,17 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import cross_val_score, train_test_split
 
-from case_parser.ml.features import FeatureExtractor
-from case_parser.ml.predictor import ProcedureMLPipeline
-from ml_training.utils import normalize_category_label
+try:
+    from case_parser.ml.features import FeatureExtractor
+    from case_parser.ml.predictor import ProcedureMLPipeline
+    from ml_training.utils import normalize_category_label
+except ImportError:
+    project_root = Path(__file__).resolve().parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    from case_parser.ml.features import FeatureExtractor
+    from case_parser.ml.predictor import ProcedureMLPipeline
+    from ml_training.utils import normalize_category_label
 
 console = Console()
 
