@@ -76,6 +76,26 @@ def test_normalize_csv_columns_populates_procedure_notes_from_airway_type():
     assert result.loc[0, column_map.procedure_notes] == "Intubation routine"
 
 
+def test_normalize_csv_columns_combines_airway_details_into_notes():
+    """Technique-level detail text should be preserved for downstream inference."""
+    csv_df = pd.DataFrame({
+        "MPOG_Case_ID": ["abc-123"],
+        "AIMS_Scheduled_DT": ["2025-01-01 08:00:00"],
+        "AIMS_Patient_Age_Years": [42],
+        "ASA_Status": [2],
+        "AIMS_Actual_Procedure_Text": ["Thoracotomy"],
+        "Airway_Type": ["Intubation routine"],
+        "Airway_Details": ["Left double lumen tube placed"],
+    })
+    column_map = ColumnMap()
+
+    result = CsvHandler(column_map).normalize_columns(csv_df)
+
+    assert result.loc[0, column_map.procedure_notes] == (
+        "Intubation routine\nLeft double lumen tube placed"
+    )
+
+
 # --- join_case_and_procedures orphan detection ---
 
 
@@ -126,6 +146,63 @@ def test_join_with_empty_proc_df():
 
     assert len(joined) == 1
     assert orphans.empty
+
+
+def test_join_with_only_orphan_procedures_preserves_airway_column():
+    case_df = _make_case_df("C1")
+    proc_df = _make_proc_df(("ORPHAN-1", "Labor Epidural"))
+
+    joined, orphans = join_case_and_procedures(case_df, proc_df)
+
+    assert len(joined) == 1
+    assert "Airway_Type" in joined.columns
+    assert joined.loc[0, "Airway_Type"] is pd.NA or pd.isna(
+        joined.loc[0, "Airway_Type"]
+    )
+    assert len(orphans) == 1
+
+
+def test_join_selects_highest_ranked_technique_with_stable_tie_break():
+    case_df = _make_case_df("C1")
+    proc_df = _make_proc_df(
+        ("C1", "Unknown A"),
+        ("C1", "LMA"),
+        ("C1", "Unknown B"),
+    )
+
+    joined, _orphans = join_case_and_procedures(case_df, proc_df)
+
+    assert joined.loc[0, "Airway_Type"] == "LMA"
+
+
+def test_join_preserves_primary_technique_details_for_case_level_notes():
+    case_df = _make_case_df("C1")
+    proc_df = pd.DataFrame({
+        "MPOG_Case_ID": ["C1", "C1"],
+        "ProcedureName": ["Intubation routine", "Arterial line"],
+        "Comment": [pd.NA, pd.NA],
+        "Details": ["Left double lumen tube placed", "radial line placed"],
+    })
+
+    joined, _orphans = join_case_and_procedures(case_df, proc_df)
+
+    assert joined.loc[0, "Airway_Type"] == "Intubation routine"
+    assert joined.loc[0, "Airway_Details"] == "Left double lumen tube placed"
+
+
+def test_join_does_not_promote_block_only_details_to_case_airway_notes():
+    case_df = _make_case_df("C1")
+    proc_df = pd.DataFrame({
+        "MPOG_Case_ID": ["C1"],
+        "ProcedureName": ["Peripheral nerve block"],
+        "Comment": [pd.NA],
+        "Details": ["Patient sedated but conversant throughout the block"],
+    })
+
+    joined, _orphans = join_case_and_procedures(case_df, proc_df)
+
+    assert joined.loc[0, "Airway_Type"] == "Peripheral nerve block"
+    assert pd.isna(joined.loc[0, "Airway_Details"])
 
 
 # --- normalize_orphan_columns ---
@@ -198,9 +275,32 @@ def test_normalize_orphan_columns_maps_required_columns():
     # PrimaryBlock maps to nerve block type
     assert pd.isna(result.loc[0, column_map.nerve_block_type])
     assert result.loc[1, column_map.nerve_block_type] == "Femoral nerve block"
-    # Details maps to procedure notes
-    assert result.loc[0, column_map.procedure_notes] == "performing provider details"
-    assert pd.isna(result.loc[1, column_map.procedure_notes])
+    # Orphan notes preserve technique and detail text like matched rows do.
+    assert result.loc[0, column_map.procedure_notes] == (
+        "Labor Epidural\nperforming provider details"
+    )
+    assert result.loc[1, column_map.procedure_notes] == "Peripheral nerve block"
+
+
+def test_normalize_orphan_columns_preserves_comment_and_optional_airway_text():
+    column_map = ColumnMap()
+    orphan_df = pd.DataFrame({
+        "MPOG_Case_ID": ["ORPHAN-3"],
+        "ProcedureName": ["Intubation routine"],
+        "Comment": ["Easy mask ventilation"],
+        "Details": ["Left double lumen tube placed"],
+        "Airway_Type": ["Intubation routine"],
+        "Airway_Details": ["Video laryngoscopy"],
+    })
+
+    result = CsvHandler(column_map).normalize_orphan_columns(orphan_df)
+
+    assert result.loc[0, column_map.procedure_notes] == (
+        "Intubation routine\n"
+        "Easy mask ventilation\n"
+        "Video laryngoscopy\n"
+        "Left double lumen tube placed"
+    )
 
 
 def test_normalize_orphan_columns_extracts_asa_date_and_attending():
@@ -228,16 +328,15 @@ def test_normalize_orphan_columns_extracts_asa_date_and_attending():
     assert result.loc[0, column_map.anesthesiologist] == "SMITH, JANE"
 
 
-def test_normalize_orphan_columns_fills_na_for_demographics():
-    """Age is always NA (not in ProcedureList); date/asa/attending populate from CSV."""
+def test_normalize_orphan_columns_defaults_age_for_orphans():
+    """Orphan rows default age to adult range source value (30 years)."""
     column_map = ColumnMap()
     # Minimal fixture with only required columns (as produced by _make_proc_df)
     orphan_df = _make_proc_df(("ORPHAN-1", "Labor Epidural"))
 
     result = CsvHandler(column_map).normalize_orphan_columns(orphan_df)
 
-    # Age is never in ProcedureList
-    assert pd.isna(result.loc[0, column_map.age])
+    assert result.loc[0, column_map.age] == 30
     # With minimal fixture, date and asa are NA (columns absent)
     assert pd.isna(result.loc[0, column_map.date])
     assert pd.isna(result.loc[0, column_map.asa])

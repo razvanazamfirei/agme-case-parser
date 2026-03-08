@@ -78,7 +78,7 @@ def normalize_ml_inference_jobs(
 
     if isinstance(raw_value, str):
         raw_text = raw_value.strip()
-        if raw_text == "":
+        if not raw_text:
             return BASE_DEFAULT_ML_INFERENCE_JOBS
         candidate_value: Any = raw_text
     else:

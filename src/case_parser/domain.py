@@ -56,12 +56,20 @@ class AirwayManagement(StrEnum):
 
     ORAL_ETT = "Oral ETT"
     NASAL_ETT = "Nasal ETT"
+    DOUBLE_LUMEN_ETT = "Double Lumen Tube"
     DIRECT_LARYNGOSCOPE = "Direct Laryngoscope"
     VIDEO_LARYNGOSCOPE = "Video Laryngoscope"
     SUPRAGLOTTIC_AIRWAY = "Supraglottic Airway"
     FLEXIBLE_BRONCHOSCOPIC = "Flexible Bronchoscopic"
     MASK = "Mask"
     DIFFICULT_AIRWAY = "Difficult Airway"
+
+
+class AirwayTubeRoute(StrEnum):
+    """Route used for an endotracheal tube when present."""
+
+    ORAL = "Oral"
+    NASAL = "Nasal"
 
 
 class VascularAccess(StrEnum):
@@ -110,6 +118,16 @@ class ParsedCase(BaseModel):
     responsible_provider: str | None = Field(description="Responsible provider name")
     nerve_block_type: str | None = Field(
         default=None, description="Nerve block type from MPOG PrimaryBlock field"
+    )
+    raw_nerve_block_type: str | None = Field(
+        default=None,
+        description="Original, unnormalized MPOG PrimaryBlock free text",
+    )
+    unmatched_block_source: str | None = Field(
+        default=None,
+        description=(
+            "Original block text retained when normalization was unknown/generic"
+        ),
     )
 
     # Parsed/categorized data
@@ -223,11 +241,17 @@ class ParsedCase(BaseModel):
             "Case ID": self.episode_id or "",
             "Case Date": self.case_date.strftime("%m/%d/%Y"),
             "Supervisor": _strip_phi(self.responsible_provider or ""),
+            "Age": self.age_category.value
+            if self.age_category
+            else AgeCategory.TWELVE_YR_TO_65_YR.value,
             "Original Procedure": _strip_phi(self.procedure or ""),
             "ASA Physical Status": self.asa_physical_status,
             "Procedure Category": self.procedure_category.value,
             "Procedure Name": _strip_phi(self.raw_anesthesia_type or ""),
             "Primary Block": _strip_phi(self.nerve_block_type or ""),
+            "Unmatched Primary Block (Original)": _strip_phi(
+                self.unmatched_block_source or ""
+            ),
         }
 
     def has_warnings(self) -> bool:
@@ -237,6 +261,30 @@ class ParsedCase(BaseModel):
             True if parsing_warnings is non-empty, False otherwise.
         """
         return len(self.parsing_warnings) > 0
+
+    @property
+    def has_double_lumen_tube(self) -> bool:
+        """Return True when airway findings include a double-lumen tube."""
+        return AirwayManagement.DOUBLE_LUMEN_ETT in self.airway_management
+
+    @property
+    def tube_route(self) -> AirwayTubeRoute | None:
+        """Return oral vs nasal route when an ETT route can be inferred."""
+        if AirwayManagement.NASAL_ETT in self.airway_management:
+            return AirwayTubeRoute.NASAL
+        if (
+            AirwayManagement.ORAL_ETT in self.airway_management
+            or AirwayManagement.DOUBLE_LUMEN_ETT in self.airway_management
+        ):
+            return AirwayTubeRoute.ORAL
+        return None
+
+    @property
+    def ga_mac_inference(self) -> AnesthesiaType | None:
+        """Return GA or MAC when the anesthesia type resolves to that binary."""
+        if self.anesthesia_type in {AnesthesiaType.GENERAL, AnesthesiaType.MAC}:
+            return self.anesthesia_type
+        return None
 
     def is_low_confidence(self, threshold: float = 0.7) -> bool:
         """Return True if the overall confidence score falls below threshold.

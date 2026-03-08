@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from scipy.sparse import hstack
+from scipy.sparse import csr_matrix, hstack
 
 from case_parser.domain import ProcedureCategory
 from case_parser.ml.features import FeatureExtractor
@@ -46,15 +46,17 @@ def test_transform_preserves_output_when_duplicate_texts_have_distinct_metadata(
     expected = hstack([
         extractor.tfidf_word.transform(texts),
         extractor.tfidf_char.transform(texts),
-        np.array([
-            extractor._extract_structured_single_v2_cached(
-                item.procedure_text,
-                item.service_text,
-                item.rule_category,
-                int(item.rule_warning_count),
-            )
-            for item in normalized_inputs
-        ]),
+        csr_matrix(
+            np.array([
+                extractor._extract_structured_single_v2_cached(
+                    item.procedure_text,
+                    item.service_text,
+                    item.rule_category,
+                    int(item.rule_warning_count),
+                )
+                for item in normalized_inputs
+            ])
+        ),
     ]).toarray()
 
     np.testing.assert_allclose(actual, expected)
@@ -109,4 +111,4 @@ def test_extract_structured_v2_normalizes_rule_category_casing(
         0,
     )
 
-    assert features[feature_index] == 1.0
+    assert features[feature_index] == 1

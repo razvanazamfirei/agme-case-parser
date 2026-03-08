@@ -11,6 +11,8 @@ These patterns are used to subcategorize procedures like:
 
 from __future__ import annotations
 
+from functools import lru_cache
+
 # Keywords indicating ENDOVASCULAR/PERCUTANEOUS approach
 ENDOVASCULAR_KEYWORDS = (
     "ENDOVASCULAR",
@@ -62,7 +64,6 @@ VASCULAR_PATHOLOGY_KEYWORDS = (
     "HEMORRHAGE",
     "BLEED",
     "BLEEDING",
-    "HEMATOMA",
     "STROKE",
     "ISCHEMIA",
     "CAVERNOMA",
@@ -99,8 +100,14 @@ def detect_approach(procedure_text: str | None) -> str:
     """
     if not procedure_text:
         return "unknown"
+    return _detect_approach_cached(str(procedure_text).upper())
 
-    text_upper = str(procedure_text).upper()
+
+@lru_cache(maxsize=32768)
+def _detect_approach_cached(text_upper: str) -> str:  # noqa: PLR0911
+    """Cached implementation for approach detection."""
+    if not text_upper:
+        return "unknown"
 
     # Check for endovascular keywords
     has_endovascular = any(keyword in text_upper for keyword in ENDOVASCULAR_KEYWORDS)
@@ -110,6 +117,9 @@ def detect_approach(procedure_text: str | None) -> str:
 
     # If both or neither are found, return unknown
     if has_endovascular and has_open:
+        cranial_open_terms = ("CRANIOTOMY", "CRANIECTOMY", "BURR HOLE", "CLIPPING")
+        if any(term in text_upper for term in cranial_open_terms):
+            return "open"
         # Both mentioned - prefer endovascular if explicitly stated
         if "ENDOVASCULAR" in text_upper or "PERCUTANEOUS" in text_upper:
             return "endovascular"
@@ -136,8 +146,14 @@ def detect_intracerebral_pathology(procedure_text: str | None) -> str:
     """
     if not procedure_text:
         return "unknown"
+    return _detect_intracerebral_pathology_cached(str(procedure_text).upper())
 
-    text_upper = str(procedure_text).upper()
+
+@lru_cache(maxsize=32768)
+def _detect_intracerebral_pathology_cached(text_upper: str) -> str:
+    """Cached implementation for intracerebral pathology detection."""
+    if not text_upper:
+        return "unknown"
 
     # Check for vascular pathology keywords
     has_vascular = any(keyword in text_upper for keyword in VASCULAR_PATHOLOGY_KEYWORDS)
@@ -152,6 +168,11 @@ def detect_intracerebral_pathology(procedure_text: str | None) -> str:
         return "vascular"
 
     if has_nonvascular and not has_vascular:
+        return "nonvascular"
+
+    if "HEMATOMA" in text_upper and not any(
+        keyword in text_upper for keyword in ("ANEURYSM", "AVM", "ARTERIOVENOUS")
+    ):
         return "nonvascular"
 
     return "unknown"

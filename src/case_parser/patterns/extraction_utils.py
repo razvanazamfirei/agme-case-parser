@@ -8,10 +8,26 @@ These utilities handle pattern matching, confidence scoring, and context extract
 from __future__ import annotations
 
 import re
+from functools import cache
+
+PatternLike = str | re.Pattern[str]
+
+
+@cache
+def _compile_ignore_case(pattern: str) -> re.Pattern[str]:
+    """Compile a case-insensitive regex once and reuse it across rows."""
+    return re.compile(pattern, re.IGNORECASE)
+
+
+def _coerce_pattern(pattern: PatternLike) -> re.Pattern[str]:
+    """Normalize a string or compiled regex pattern to a compiled regex."""
+    if isinstance(pattern, re.Pattern):
+        return pattern
+    return _compile_ignore_case(pattern)
 
 
 def extract_with_context(
-    text: str, patterns: list[str], context_window: int = 50
+    text: str, patterns: list[PatternLike], context_window: int = 50
 ) -> list[tuple[str, str, int]]:
     r"""
     Extract matches with surrounding context.
@@ -32,7 +48,8 @@ def extract_with_context(
     """
     findings = []
     for pattern in patterns:
-        for match in re.finditer(pattern, text, re.IGNORECASE):
+        compiled_pattern = _coerce_pattern(pattern)
+        for match in compiled_pattern.finditer(text):
             start = max(0, match.start() - context_window)
             end = min(len(text), match.end() + context_window)
             context = text[start:end].strip()
@@ -42,9 +59,9 @@ def extract_with_context(
 
 def calculate_pattern_confidence(
     text: str,
-    primary_patterns: list[str],
-    supporting_patterns: list[str] | None = None,
-    negation_patterns: list[str] | None = None,
+    primary_patterns: list[PatternLike],
+    supporting_patterns: list[PatternLike] | None = None,
+    negation_patterns: list[PatternLike] | None = None,
 ) -> float:
     r"""
     Calculate confidence score based on pattern matches.
@@ -70,13 +87,19 @@ def calculate_pattern_confidence(
         confidence = calculate_pattern_confidence(text, primary, supporting)
         # Returns: 0.6 (base 0.5 + supporting 0.1)
     """
+    if not primary_patterns:
+        return 0.0
+
+    if not any(_coerce_pattern(pattern).search(text) for pattern in primary_patterns):
+        return 0.0
+
     confidence = 0.5
 
     if supporting_patterns:
         supporting_matches = sum(
             1
             for pattern in supporting_patterns
-            if re.search(pattern, text, re.IGNORECASE)
+            if _coerce_pattern(pattern).search(text)
         )
         confidence += min(supporting_matches * 0.1, 0.4)
 
@@ -84,7 +107,7 @@ def calculate_pattern_confidence(
         negation_matches = sum(
             1
             for pattern in negation_patterns
-            if re.search(pattern, text, re.IGNORECASE)
+            if _coerce_pattern(pattern).search(text)
         )
         confidence -= negation_matches * 0.3
 

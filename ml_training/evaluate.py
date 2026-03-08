@@ -18,9 +18,8 @@ from case_parser.patterns.categorization import categorize_procedure
 
 try:
     from ml_training.utils import normalize_category_label
-except ModuleNotFoundError:
-    from utils import normalize_category_label
-
+except ImportError:
+    from utils import normalize_category_label  # type: ignore[import-not-found]
 
 console = Console()
 

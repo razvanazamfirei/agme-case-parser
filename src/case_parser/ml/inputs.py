@@ -44,7 +44,7 @@ def parse_int(value: Any, default: int = 0) -> int:
         return default
     if isinstance(value, str):
         text = coerce_text(value)
-        if text == "":
+        if not text:
             return default
         try:
             return int(text)

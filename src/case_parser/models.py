@@ -45,7 +45,7 @@ TECHNIQUE_RANK: dict[str, int] = {
 # changes.  The Chrome extension reads these from the hidden _meta sheet to
 # determine which column layout to expect.
 OUTPUT_FORMAT_VERSION = "1"  # main case-log schema (OUTPUT_COLUMNS)
-STANDALONE_OUTPUT_FORMAT_VERSION = "1"  # standalone procedure schema
+STANDALONE_OUTPUT_FORMAT_VERSION = "2"  # standalone procedure schema
 
 # Format-type tokens written to _meta so consumers can tell the two schemas apart.
 FORMAT_TYPE_CASELOG = "caselog"
@@ -72,9 +72,11 @@ STANDALONE_OUTPUT_COLUMNS = [
     "Case ID",
     "Case Date",
     "Supervisor",
+    "Age",
     "Original Procedure",
     "ASA Physical Status",
     "Procedure Category",
     "Procedure Name",
     "Primary Block",
+    "Unmatched Primary Block (Original)",
 ]

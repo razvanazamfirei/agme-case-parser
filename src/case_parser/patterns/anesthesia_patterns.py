@@ -40,13 +40,20 @@ ANESTHESIA_MAPPING = {
     "SPINAL": "Spinal",
     # Monitored Anesthesia Care / Sedation
     "MAC": "MAC",
+    "MONITORED ANESTHESIA CARE": "MAC",
+    "CONSCIOUS SEDATION": "MAC",
+    "MODERATE SEDATION": "MAC",
     "SEDATION": "MAC",
     # General Anesthesia
     "INTUBAT": "GA",  # Intubation routine/complex in CSV v2 airway field
     "LMA": "GA",  # Supraglottic device implies GA in this workflow
     "SUPRAGLOTTIC": "GA",
     "GENERAL": "GA",
+    "GETA": "GA",
     "ENDOTRACHEAL": "GA",  # Endotracheal intubation implies GA
+    "ETT": "GA",
+    "DOUBLE LUMEN": "GA",
+    "DOUBLE-LUMEN": "GA",
 }
 
 
@@ -68,4 +75,25 @@ MAC_WITHOUT_AIRWAY_PROCEDURE_KEYWORDS = (
     "SIGMOIDOSCOPY",
     "TREATMENT MISSED ABORTION",
     "VASECTOMY",
+)
+
+
+MAC_NOTE_KEYWORDS = (
+    "MONITORED ANESTHESIA CARE",
+    "CONSCIOUS SEDATION",
+    "MODERATE SEDATION",
+    "MINIMAL SEDATION",
+    "TWILIGHT",
+    "SEDATED BUT CONVERSANT",
+    "REMAINED AWAKE",
+    "AWAKE AND CONVERSANT",
+)
+
+
+GA_NOTE_KEYWORDS = (
+    "GENERAL ANESTHESIA",
+    "GETA",
+    "GEN ENDOTRACHEAL",
+    "DOUBLE LUMEN",
+    "DOUBLE-LUMEN",
 )

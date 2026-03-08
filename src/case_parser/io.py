@@ -1,4 +1,9 @@
-"""I/O operations for reading and writing Excel files and CSV v2 format."""
+"""I/O operations for reading and writing Excel files and CSV v2 format.
+
+Behavioral assumption:
+- Orphan ProcedureList rows default to age 30 so they map to the adult
+  12-65 age range when the export does not include age.
+"""
 
 from __future__ import annotations
 
@@ -6,7 +11,9 @@ import logging
 import operator
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from itertools import starmap
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from openpyxl.utils import get_column_letter
@@ -22,6 +29,47 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 _RESERVED_SHEET_NAMES = {"info", "_meta"}
+_CASE_LEVEL_TECHNIQUE_MIN_RANK = 2
+DEFAULT_ORPHAN_AGE = 30
+
+
+def _combine_non_empty_text(*values: Any) -> str | None:
+    """Join distinct non-empty text fields while preserving first-seen order."""
+    parts: list[str] = []
+    seen: set[str] = set()
+    for value in values:
+        if pd.isna(value):
+            continue
+        text = str(value).strip()
+        if not text or text in seen:
+            continue
+        seen.add(text)
+        parts.append(text)
+    return "\n".join(parts) if parts else None
+
+
+def _assemble_airway_detail(rank: int, comment: Any, details: Any) -> str | None:
+    """Build case-level airway detail text only for sufficiently invasive techniques."""
+    if rank < _CASE_LEVEL_TECHNIQUE_MIN_RANK:
+        return None
+    return _combine_non_empty_text(comment, details)
+
+
+def _assemble_orphan_procedure_notes(
+    procedure_name: Any,
+    comment: Any,
+    details: Any,
+    airway_type: Any,
+    airway_details: Any,
+) -> str | None:
+    """Preserve orphan technique/comment/detail text using matched-row formatting."""
+    return _combine_non_empty_text(
+        procedure_name,
+        comment,
+        airway_type,
+        airway_details,
+        details,
+    )
 
 
 @dataclass(frozen=True)
@@ -39,12 +87,16 @@ class ExcelWriteOptions:
 # ---------------------------------------------------------------------------
 
 
-def read_excel(file_path: str | Path, sheet_name: str | int = 0) -> DataFrame:
+def read_excel(
+    file_path: str | Path, sheet_name: str | int | None = 0
+) -> DataFrame:
     """Read an Excel file and return a DataFrame.
 
     Args:
         file_path: Path to the Excel file
-        sheet_name: Sheet name or index to read (default: first sheet)
+        sheet_name: Sheet name or index to read. ``None`` is not supported
+            because this helper intentionally rejects pandas' load-all-sheets
+            behavior.
 
     Returns:
         DataFrame containing the sheet data
@@ -52,7 +104,8 @@ def read_excel(file_path: str | Path, sheet_name: str | int = 0) -> DataFrame:
     Raises:
         FileNotFoundError: If the file does not exist at file_path.
         ValueError: If the file extension is not ``.xlsx`` or ``.xls``.
-        TypeError: If sheet_name resolves to multiple sheets.
+        TypeError: If ``sheet_name`` is ``None`` or otherwise resolves to
+            multiple sheets.
     """
     file_path = Path(file_path)
 
@@ -62,6 +115,11 @@ def read_excel(file_path: str | Path, sheet_name: str | int = 0) -> DataFrame:
     if file_path.suffix.lower() not in {".xlsx", ".xls"}:
         raise ValueError(
             f"Unsupported file format: {file_path.suffix}. Expected .xlsx or .xls"
+        )
+
+    if sheet_name is None:
+        raise TypeError(
+            "sheet_name=None is not supported; provide a sheet name or index"
         )
 
     try:
@@ -303,7 +361,7 @@ def select_primary_technique(proc_group: pd.DataFrame) -> pd.Series:
     return pd.Series({"Airway_Type": max(ranked, key=operator.itemgetter(0))[1]})
 
 
-def join_case_and_procedures(
+def join_case_and_procedures(  # noqa: PLR0912
     case_df: DataFrame, proc_df: DataFrame
 ) -> tuple[DataFrame, DataFrame]:
     """Join case and procedure DataFrames, aggregating multiple procedures per case.
@@ -319,24 +377,79 @@ def join_case_and_procedures(
     """
     orphan_procs = pd.DataFrame(columns=proc_df.columns if not proc_df.empty else [])
     if not proc_df.empty:
-        case_ids = set(case_df["MPOG_Case_ID"])
-        orphan_mask = ~proc_df["MPOG_Case_ID"].isin(case_ids)
+        orphan_mask = ~proc_df["MPOG_Case_ID"].isin(case_df["MPOG_Case_ID"])
         orphan_procs = proc_df[orphan_mask].copy().reset_index(drop=True)
         if not orphan_procs.empty:
             logger.info(
                 "Found %d orphan procedure(s) with no matching case", len(orphan_procs)
             )
         matched_procs = proc_df[~orphan_mask]
-        proc_agg = (
-            matched_procs
-            .groupby("MPOG_Case_ID")
-            .apply(select_primary_technique)  # type: ignore[no-matching-overload]
-            .reset_index()
-        )
+        if matched_procs.empty:
+            proc_agg = pd.DataFrame(columns=["MPOG_Case_ID", "Airway_Type"])
+        else:
+            ranked_columns = ["MPOG_Case_ID", "ProcedureName"]
+            if "Comment" in matched_procs.columns:
+                ranked_columns.append("Comment")
+            if "Details" in matched_procs.columns:
+                ranked_columns.append("Details")
+            ranked_procs = matched_procs.loc[
+                matched_procs["ProcedureName"].notna(),
+                ranked_columns,
+            ].copy()
+            if ranked_procs.empty:
+                proc_agg = pd.DataFrame(columns=["MPOG_Case_ID", "Airway_Type"])
+            else:
+                ranked_procs["_technique_rank"] = (
+                    ranked_procs["ProcedureName"].map(TECHNIQUE_RANK).fillna(0)
+                )
+                primary_procs = (
+                    ranked_procs
+                    .sort_values(
+                        by=["MPOG_Case_ID", "_technique_rank"],
+                        ascending=[True, False],
+                        kind="stable",
+                    )
+                    .drop_duplicates(subset="MPOG_Case_ID", keep="first")
+                    .reset_index(drop=True)
+                )
+                primary_procs["Airway_Type"] = primary_procs["ProcedureName"]
+                if (
+                    "Comment" in primary_procs.columns
+                    or "Details" in primary_procs.columns
+                ):
+                    comment_values = (
+                        primary_procs["Comment"]
+                        if "Comment" in primary_procs.columns
+                        else [None] * len(primary_procs)
+                    )
+                    detail_values = (
+                        primary_procs["Details"]
+                        if "Details" in primary_procs.columns
+                        else [None] * len(primary_procs)
+                    )
+                    primary_procs["Airway_Details"] = list(
+                        starmap(
+                            _assemble_airway_detail,
+                            zip(
+                                primary_procs["_technique_rank"],
+                                comment_values,
+                                detail_values,
+                                strict=False,
+                            ),
+                        )
+                    )
+                proc_agg_columns = ["MPOG_Case_ID", "Airway_Type"]
+                if "Airway_Details" in primary_procs.columns:
+                    proc_agg_columns.append("Airway_Details")
+                proc_agg = primary_procs.loc[:, proc_agg_columns]
     else:
         proc_agg = pd.DataFrame(columns=["MPOG_Case_ID", "Airway_Type"])
 
     result = case_df.merge(proc_agg, on="MPOG_Case_ID", how="left")
+    if "Airway_Type" not in result.columns:
+        result["Airway_Type"] = pd.NA
+    if "Airway_Details" not in result.columns:
+        result["Airway_Details"] = pd.NA
     logger.info(
         "Joined %d cases with procedures (%d cases without procedures)",
         len(result),
@@ -434,9 +547,25 @@ class CsvHandler:
             )
 
         # CSV v2 airway values carry both anesthesia signal and airway technique hints.
-        # Populate procedure notes so airway extraction can run through the normal flow.
+        # Preserve any technique-level note text from the matched ProcedureList row
+        # so downstream airway/anesthesia inference can use more than the coarse
+        # ProcedureName label.
         if "Airway_Type" in csv_df.columns:
-            result[column_map.procedure_notes] = csv_df["Airway_Type"]
+            airway_details = (
+                csv_df["Airway_Details"]
+                if "Airway_Details" in csv_df.columns
+                else [None] * len(csv_df)
+            )
+            result[column_map.procedure_notes] = list(
+                starmap(
+                    _combine_non_empty_text,
+                    zip(
+                        csv_df["Airway_Type"],
+                        airway_details,
+                        strict=False,
+                    ),
+                )
+            )
 
         # CSV v2 has no Services column — derive from procedure text during processing.
         result[column_map.services] = ""
@@ -472,7 +601,9 @@ class CsvHandler:
             AIMS_Actual_Procedure_Text → procedure
             AnesAttendingNames       → anesthesiologist
 
-        Age is not present in MPOG ProcedureList exports; that field is left NA.
+        Age is not present in MPOG ProcedureList exports; default to
+        ``DEFAULT_ORPHAN_AGE`` years so standalone procedures map to the
+        required 12-65 age category.
 
         Args:
             orphan_df: DataFrame of unmatched ProcedureList rows.
@@ -489,9 +620,47 @@ class CsvHandler:
         result[column_map.emergent] = orphan_df.get("Emergency")
         result[column_map.final_anesthesia_type] = orphan_df.get("ProcedureName")
         result[column_map.nerve_block_type] = orphan_df.get("PrimaryBlock")
-        result[column_map.procedure_notes] = orphan_df.get("Details")
         result[column_map.procedure] = orphan_df.get("AIMS_Actual_Procedure_Text")
         result[column_map.services] = ""
+
+        procedure_names = (
+            orphan_df["ProcedureName"]
+            if "ProcedureName" in orphan_df.columns
+            else [None] * len(orphan_df)
+        )
+        comment_values = (
+            orphan_df["Comment"]
+            if "Comment" in orphan_df.columns
+            else [None] * len(orphan_df)
+        )
+        detail_values = (
+            orphan_df["Details"]
+            if "Details" in orphan_df.columns
+            else [None] * len(orphan_df)
+        )
+        airway_types = (
+            orphan_df["Airway_Type"]
+            if "Airway_Type" in orphan_df.columns
+            else [None] * len(orphan_df)
+        )
+        airway_details = (
+            orphan_df["Airway_Details"]
+            if "Airway_Details" in orphan_df.columns
+            else [None] * len(orphan_df)
+        )
+        result[column_map.procedure_notes] = list(
+            starmap(
+                _assemble_orphan_procedure_notes,
+                zip(
+                    procedure_names,
+                    comment_values,
+                    detail_values,
+                    airway_types,
+                    airway_details,
+                    strict=False,
+                ),
+            )
+        )
 
         if "AnesAttendingNames" in orphan_df.columns:
             result[column_map.anesthesiologist] = orphan_df["AnesAttendingNames"].apply(
@@ -500,7 +669,8 @@ class CsvHandler:
         else:
             result[column_map.anesthesiologist] = pd.NA
 
-        # Age is not exported in MPOG ProcedureList
-        result[column_map.age] = pd.NA
+        result[column_map.age] = (
+            DEFAULT_ORPHAN_AGE  # Maps orphan procedures to the adult 12-65 range.
+        )
 
         return result.reset_index(drop=True)

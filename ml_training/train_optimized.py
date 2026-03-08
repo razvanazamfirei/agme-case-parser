@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import pickle  # noqa: S403
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,19 +16,22 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress
 from rich.table import Table
-from sklearn.base import ClassifierMixin
 from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import cross_val_score, train_test_split
 
-from case_parser.ml.features import FeatureExtractor
-from case_parser.ml.predictor import ProcedureMLPipeline
-
 try:
+    from case_parser.ml.features import FeatureExtractor
+    from case_parser.ml.predictor import ProcedureMLPipeline
     from ml_training.utils import normalize_category_label
-except ModuleNotFoundError:
-    from utils import normalize_category_label
+except ImportError:
+    project_root = Path(__file__).resolve().parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    from case_parser.ml.features import FeatureExtractor
+    from case_parser.ml.predictor import ProcedureMLPipeline
+    from ml_training.utils import normalize_category_label
 
 console = Console()
 
@@ -36,7 +40,7 @@ console = Console()
 class TrainArtifacts:
     """Container for trained model components and metadata."""
 
-    model: ClassifierMixin
+    model: Any
     feature_extractor: FeatureExtractor
     best_score: float
     best_name: str
@@ -123,8 +127,8 @@ def _validate_required_columns(df: pd.DataFrame, label_column: str) -> bool:
 
 def _extract_training_arrays(
     df: pd.DataFrame, label_column: str
-) -> tuple[np.ndarray[Any, Any], np.ndarray[Any, Any]]:
-    features = df["procedure"].fillna("").astype(str).to_numpy()
+) -> tuple[list[str], np.ndarray[Any, Any]]:
+    features = df["procedure"].fillna("").astype(str).tolist()
     labels = (
         df[label_column]
         .fillna("Other (procedure cat)")
@@ -170,7 +174,7 @@ def _resolve_stratify_labels(
 
 
 def _extract_feature_matrices(
-    x_train: np.ndarray[Any, Any], x_val: np.ndarray[Any, Any]
+    x_train: list[str], x_val: list[str]
 ) -> tuple[FeatureExtractor, Any, Any]:
     feature_extractor = FeatureExtractor()
     with Progress(console=console) as progress:
@@ -184,18 +188,18 @@ def _extract_feature_matrices(
 
 
 def _train_single_model(
-    model: ClassifierMixin,
+    model: Any,
     x_train_features: Any,
     y_train: np.ndarray[Any, Any],
     x_val_features: Any,
     y_val: np.ndarray[Any, Any],
-) -> tuple[ClassifierMixin, float]:
+) -> tuple[Any, float]:
     model.fit(x_train_features, y_train)
     score = float(model.score(x_val_features, y_val))
     return model, score
 
 
-def _build_model_candidates() -> dict[str, ClassifierMixin]:
+def _build_model_candidates() -> dict[str, Any]:
     return {
         "Logistic Regression": LogisticRegression(
             max_iter=2000,
@@ -212,7 +216,7 @@ def _build_model_candidates() -> dict[str, ClassifierMixin]:
     }
 
 
-def _print_model_comparison(models: dict[str, tuple[ClassifierMixin, float]]) -> None:
+def _print_model_comparison(models: dict[str, tuple[Any, float]]) -> None:
     table = Table(title="Model Comparison", border_style="cyan")
     table.add_column("Model", style="cyan")
     table.add_column("Validation Accuracy", justify="right")
@@ -224,9 +228,9 @@ def _print_model_comparison(models: dict[str, tuple[ClassifierMixin, float]]) ->
 
 
 def train_ensemble_model(
-    x_train: np.ndarray[Any, Any],
+    x_train: list[str],
     y_train: np.ndarray[Any, Any],
-    x_val: np.ndarray[Any, Any],
+    x_val: list[str],
     y_val: np.ndarray[Any, Any],
 ) -> TrainArtifacts:
     """Train candidate models and return the best performer.
@@ -244,7 +248,7 @@ def train_ensemble_model(
         x_val,
     )
 
-    trained_models: dict[str, tuple[ClassifierMixin, float]] = {}
+    trained_models: dict[str, tuple[Any, float]] = {}
     base_models = _build_model_candidates()
 
     with Progress(console=console) as progress:
@@ -324,7 +328,7 @@ def _print_validation_metrics(
 
 def _maybe_run_cross_validation(
     artifacts: TrainArtifacts,
-    all_features: np.ndarray[Any, Any],
+    all_features: list[str],
     labels: np.ndarray[Any, Any],
     class_counts: pd.Series[Any],
     enabled: bool,
@@ -368,7 +372,8 @@ def _save_model_artifact(
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    pd.to_pickle({"pipeline": pipeline, "metadata": metadata}, output_path)
+    with output_path.open("wb") as fh:
+        pickle.dump({"pipeline": pipeline, "metadata": metadata}, fh)
     console.print(f"\n[green]Model saved to {output_path}[/green]")
 
 

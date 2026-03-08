@@ -14,19 +14,20 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from sklearn.model_selection import train_test_split
-from utils import run_python_script
-
-from case_parser.ml.predictor import MLPredictor
 
 try:
-    from ml_training.utils import normalize_category_label
-except ModuleNotFoundError:
-    from utils import normalize_category_label
-
+    from case_parser.ml.predictor import MLPredictor
+    from ml_training.utils import normalize_category_label, run_python_script
+except ImportError:
+    project_root = Path(__file__).resolve().parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
+    from case_parser.ml.predictor import MLPredictor
+    from ml_training.utils import normalize_category_label, run_python_script
 
 console = Console()
 
-PROJECT_ROOT = Path(__file__).parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CASE_DIR = PROJECT_ROOT / "Output-Supervised" / "case-list"
 DEFAULT_PREPARED_DATA = PROJECT_ROOT / "ml_training_data" / "batch_prepared.csv"
 DEFAULT_SEEN_DATA = PROJECT_ROOT / "ml_training_data" / "seen_train.csv"
@@ -112,15 +113,35 @@ def split_prepared_dataset(config: SplitConfig) -> tuple[int, int]:
         .astype(str)
         .map(normalize_category_label)
     )
+    if normalized_labels.empty:
+        raise ValueError(
+            f"Prepared dataset '{config.prepared_data}' contains no rows to split"
+        )
+
     df = df.copy()
     df[config.label_column] = normalized_labels
 
     counts = normalized_labels.value_counts()
-    stratify_labels = normalized_labels if int(counts.min()) >= 2 else None
+    if counts.empty:
+        raise ValueError(
+            f"Prepared dataset '{config.prepared_data}' contains no labels to split"
+        )
+
+    n = len(normalized_labels)
+    k = counts.size
+    test_n = int(n * config.unseen_ratio)
+    train_n = n - test_n
+    min_count = int(counts.min())
+    stratify_labels = (
+        normalized_labels
+        if min_count >= 2 and test_n >= k and train_n >= k
+        else None
+    )
     if stratify_labels is None:
         console.print(
             "[yellow]Split warning:[/yellow] "
-            f"least-populated class has {int(counts.min())} sample(s), "
+            f"least-populated class has {min_count} sample(s), "
+            f"train={train_n}, test={test_n}, classes={k}; "
             "falling back to non-stratified split."
         )
 
@@ -274,6 +295,15 @@ def _validate_inputs(args: argparse.Namespace) -> None:
             f"Model output not found for evaluation: {args.model_output}"
         )
 
+    unseen_data = getattr(args, "unseen_data", None)
+    if not args.skip_evaluate and args.skip_split and (
+        unseen_data is None or not unseen_data.exists()
+    ):
+        raise PipelineError(
+            "Unseen holdout data not found for evaluation. "
+            f"Provide --unseen-data or run without --skip-split: {unseen_data}"
+        )
+
 
 def _prepare_output_dirs(args: argparse.Namespace) -> None:
     args.prepared_data.parent.mkdir(parents=True, exist_ok=True)
@@ -395,9 +425,14 @@ def _run_train_stage(args: argparse.Namespace) -> list[StageResult]:
 
 
 def _run_evaluate_stage(args: argparse.Namespace) -> StageResult | None:
-    should_evaluate = (
-        not args.skip_evaluate and not args.skip_split and args.unseen_data.exists()
-    )
+    unseen_data = getattr(args, "unseen_data", None)
+    if not args.skip_evaluate and (unseen_data is None or not unseen_data.exists()):
+        raise PipelineError(
+            "Unseen holdout data not found for evaluation. "
+            f"Provide --unseen-data or generate a split first: {unseen_data}"
+        )
+
+    should_evaluate = not args.skip_evaluate and args.unseen_data.exists()
     if not should_evaluate:
         return None
 

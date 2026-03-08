@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pickle  # noqa: S403
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from contextlib import suppress
 from pathlib import Path
 from typing import Any
@@ -278,7 +278,7 @@ class MLPredictor:
         services_list: list[list[str]] | None = None,
         rule_categories: list[str] | None = None,
         rule_warning_counts: list[int] | None = None,
-    ) -> tuple[Any, list[float]]:
+    ) -> tuple[Sequence[str], list[float]]:
         """Predict categories and confidences for multiple procedures."""
         if not procedure_texts:
             return [], []

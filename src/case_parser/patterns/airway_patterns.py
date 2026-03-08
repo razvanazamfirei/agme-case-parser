@@ -46,6 +46,12 @@ INTUBATION_PATTERNS = [
     r"\boral\s+intubat",
 ]
 
+# Double-lumen tube / thoracic tube variants
+DOUBLE_LUMEN_PATTERNS = [
+    r"\bdouble[- ]lumen(\s+(tube|ett))?\b",
+    r"\bDLT\b",
+]
+
 # ============================================================================
 # LARYNGOSCOPY TECHNIQUES
 # ============================================================================
@@ -131,7 +137,7 @@ NEGATION_PATTERNS = [
 # ============================================================================
 
 
-def extract_airway_management(
+def extract_airway_management(  # noqa: PLR0914, PLR0915
     notes: Any, source_field: str = "procedure_notes"
 ) -> tuple[list[AirwayManagement], list[ExtractionFinding]]:
     """
@@ -164,30 +170,62 @@ def extract_airway_management(
     text = str(notes)
     airway_techniques = []
     findings = []
+    has_nasal_route = bool(re.search(r"\bnasal\b", text, re.IGNORECASE))
 
     # Check for intubation
+    double_lumen_matches = extract_with_context(text, DOUBLE_LUMEN_PATTERNS)
     intubation_matches = extract_with_context(text, INTUBATION_PATTERNS)
-    if intubation_matches:
+    if intubation_matches or double_lumen_matches:
+        route_context = (
+            intubation_matches[0][1]
+            if intubation_matches
+            else double_lumen_matches[0][1]
+        )
+        route_patterns = (
+            [*INTUBATION_PATTERNS, *DOUBLE_LUMEN_PATTERNS]
+            if double_lumen_matches
+            else INTUBATION_PATTERNS
+        )
+
         # Determine if nasal vs oral
-        if re.search(r"\bnasal\b", text, re.IGNORECASE):
+        if has_nasal_route:
             airway_techniques.append(AirwayManagement.NASAL_ETT)
             confidence = calculate_pattern_confidence(
-                text, INTUBATION_PATTERNS, [r"\bnasal\b"], NEGATION_PATTERNS
+                text, route_patterns, [r"\bnasal\b"], NEGATION_PATTERNS
             )
+            route_value = AirwayManagement.NASAL_ETT.value
         else:
             airway_techniques.append(AirwayManagement.ORAL_ETT)
             confidence = calculate_pattern_confidence(
-                text, INTUBATION_PATTERNS, None, NEGATION_PATTERNS
+                text, route_patterns, None, NEGATION_PATTERNS
             )
+            route_value = AirwayManagement.ORAL_ETT.value
 
         findings.append(
             ExtractionFinding(
-                value=AirwayManagement.ORAL_ETT.value,
+                value=route_value,
                 confidence=confidence,
-                context=intubation_matches[0][1],
+                context=route_context,
                 source_field=source_field,
             )
         )
+
+        if double_lumen_matches:
+            airway_techniques.append(AirwayManagement.DOUBLE_LUMEN_ETT)
+            confidence = calculate_pattern_confidence(
+                text,
+                DOUBLE_LUMEN_PATTERNS,
+                [r"\bintubat(ed|ion|e)?\b", r"\bETT\b"],
+                NEGATION_PATTERNS,
+            )
+            findings.append(
+                ExtractionFinding(
+                    value=AirwayManagement.DOUBLE_LUMEN_ETT.value,
+                    confidence=confidence,
+                    context=double_lumen_matches[0][1],
+                    source_field=source_field,
+                )
+            )
 
         # Check for laryngoscopy method
         dl_matches = extract_with_context(text, DIRECT_LARYNGOSCOPY_PATTERNS)

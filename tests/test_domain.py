@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from case_parser.domain import (
     AgeCategory,
     AirwayManagement,
+    AirwayTubeRoute,
     AnesthesiaType,
     ParsedCase,
     ProcedureCategory,
@@ -55,20 +56,19 @@ def test_parsed_case_creation():
 
 def test_services_field_validator():
     """Test that services field properly splits newline-separated values."""
-    # Test with string input
-    case = ParsedCase(
-        raw_date="08/27/2025",
-        episode_id="12345",
-        raw_age=45.0,
-        raw_asa="2",
-        emergent=False,
-        raw_anesthesia_type="general",
-        services="ORTHO\nTRAUMA",  # Newline-separated
-        procedure="Hip Replacement",
-        procedure_notes=None,
-        responsible_provider="Dr. Smith",
-        case_date=date(2025, 8, 27),
-    )
+    case = ParsedCase.model_validate({
+        "raw_date": "08/27/2025",
+        "episode_id": "12345",
+        "raw_age": 45.0,
+        "raw_asa": "2",
+        "emergent": False,
+        "raw_anesthesia_type": "general",
+        "services": "ORTHO\nTRAUMA",
+        "procedure": "Hip Replacement",
+        "procedure_notes": None,
+        "responsible_provider": "Dr. Smith",
+        "case_date": date(2025, 8, 27),
+    })
 
     assert case.services == ["ORTHO", "TRAUMA"]
 
@@ -153,6 +153,55 @@ def test_to_output_dict_with_empty_extractions():
     assert output["Airway Management"] == ""
     assert output["Specialized Vascular Access"] == ""
     assert output["Specialized Monitoring Techniques"] == ""
+
+
+def test_explicit_airway_and_ga_mac_inference_helpers():
+    case = ParsedCase(
+        raw_date="08/27/2025",
+        episode_id="12345",
+        raw_age=45.0,
+        raw_asa="2",
+        emergent=False,
+        raw_anesthesia_type="general",
+        services=[],
+        procedure="Thoracotomy",
+        procedure_notes="Double lumen tube placed",
+        responsible_provider="Dr. Smith",
+        case_date=date(2025, 8, 27),
+        anesthesia_type=AnesthesiaType.GENERAL,
+        airway_management=[
+            AirwayManagement.DOUBLE_LUMEN_ETT,
+        ],
+    )
+
+    assert case.has_double_lumen_tube is True
+    assert case.tube_route == AirwayTubeRoute.ORAL
+    assert case.ga_mac_inference == AnesthesiaType.GENERAL
+
+
+def test_to_standalone_output_dict_defaults_age_and_emits_debug_block():
+    """Standalone output includes default adult age and unmatched block debug text."""
+    case = ParsedCase(
+        raw_date="08/27/2025",
+        episode_id="ORPHAN-1",
+        raw_age=None,
+        raw_asa="2",
+        emergent=False,
+        raw_anesthesia_type="Peripheral nerve block",
+        services=[],
+        procedure="Knee procedure",
+        procedure_notes=None,
+        responsible_provider="Dr. [PHI] Smith",
+        nerve_block_type="Other - peripheral nerve blockade site",
+        unmatched_block_source="Serratus [PHI] plane block",
+        case_date=date(2025, 8, 27),
+    )
+
+    output = case.to_standalone_output_dict()
+
+    assert output["Age"] == "d. >= 12 yr. and < 65 yr."
+    assert output["Primary Block"] == "Other - peripheral nerve blockade site"
+    assert output["Unmatched Primary Block (Original)"] == "Serratus plane block"
 
 
 def test_has_warnings():

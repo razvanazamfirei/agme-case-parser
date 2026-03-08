@@ -39,7 +39,7 @@ class TestReadExcel:
             pd.DataFrame({"A": [1]}).to_excel(writer, sheet_name="Sheet1", index=False)
             pd.DataFrame({"B": [2]}).to_excel(writer, sheet_name="Sheet2", index=False)
 
-        with pytest.raises(TypeError, match="Multiple sheets"):
+        with pytest.raises(TypeError, match="sheet_name=None is not supported"):
             read_excel(path, sheet_name=None)
 
     def test_reads_by_sheet_name(self, tmp_path):

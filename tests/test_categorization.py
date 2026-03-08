@@ -88,6 +88,20 @@ class TestCategorizeCardiac:
             == ProcedureCategory.CARDIAC_WITHOUT_CPB
         )
 
+    def test_explicit_cpb_wins_over_generic_percutaneous_steps(self):
+        assert (
+            categorize_cardiac(
+                "CABG W/ 1 ARTERIAL GRAFT; INSERTION INTRA-AORTIC BALLOON ASSIST DEVICE PERCUTANEOUS"
+            )
+            == ProcedureCategory.CARDIAC_WITH_CPB
+        )
+
+    def test_tavr_remains_without_cpb(self):
+        assert (
+            categorize_cardiac("TRANSCATHETER AORTIC VALVE REPLACEMENT (TAVR/TAVI)")
+            == ProcedureCategory.CARDIAC_WITHOUT_CPB
+        )
+
 
 class TestCategorizeVascular:
     def test_endovascular_approach(self):
@@ -144,6 +158,14 @@ class TestCategorizeIntracerebral:
             == ProcedureCategory.INTRACEREBRAL_NONVASCULAR_OPEN
         )
 
+    def test_mixed_open_and_endovascular_cranial_case_prefers_open(self):
+        assert (
+            categorize_intracerebral(
+                "CRANIECTOMY HEMATOMA SUPRATENTORIAL; TRANSCATHETER PERMANENT OCCLUSION/EMBOLIZATION PERCUTANEOUS CNS"
+            )
+            == ProcedureCategory.INTRACEREBRAL_NONVASCULAR_OPEN
+        )
+
 
 class TestCategorizeObgyn:
     def test_cesarean_detection(self):
@@ -186,6 +208,18 @@ class TestFallbackCategoriesFromText:
         categories = _fallback_categories_from_text("ROUTINE CHECKUP")
         assert categories == []
 
+    def test_thoracic_epidural_does_not_match_intrathoracic_rule(self):
+        categories = _fallback_categories_from_text(
+            "INJECTION, INTERLAMINAR EPIDURAL OR SUBARACHNOID, CERVICAL OR THORACIC"
+        )
+        assert categories == []
+
+    def test_ep_case_with_vasc_access_does_not_match_major_vessels(self):
+        categories = _fallback_categories_from_text(
+            "EP ELECTROPHYSIOLOGIC EVALUATION W/ ABLATION VENTRICULAR TACHYCARDIA; EP US VASC ACCESS"
+        )
+        assert categories == []
+
 
 class TestCategorizeProcedure:
     def test_none_procedure_returns_other(self):
@@ -223,6 +257,11 @@ class TestCategorizeProcedure:
         assert category == ProcedureCategory.CARDIAC_WITH_CPB
         assert warnings == []
 
+    def test_raw_string_service_is_treated_as_one_service(self):
+        category, warnings = categorize_procedure("Heart surgery", "CARDIAC")
+        assert category == ProcedureCategory.CARDIAC_WITH_CPB
+        assert warnings == []
+
     def test_apply_rule_category_cardiac(self):
         result = _apply_rule_category("Cardiac", "OFF PUMP CABG")
         assert result == ProcedureCategory.CARDIAC_WITHOUT_CPB
@@ -244,3 +283,13 @@ def test_normalize_services_skips_null_and_string_sentinels():
     assert _normalize_services(["cardiac", None, np.nan, pd.NA, "nan", "None", "<NA>"]) == (
         "CARDIAC",
     )
+
+
+def test_normalize_services_treats_raw_string_as_single_token():
+    assert _normalize_services("cardiac") == ("CARDIAC",)
+
+
+def test_normalize_services_scalar_missing_returns_empty_tuple():
+    assert _normalize_services(None) == ()
+    assert _normalize_services(pd.NA) == ()
+    assert _normalize_services(np.nan) == ()

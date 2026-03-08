@@ -2,14 +2,35 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TypedDict
+from typing import Protocol, TypedDict
 
 from ..domain import ProcedureCategory
 from ..patterns.categorization import categorize_procedure, categorize_procedures
 from .config import DEFAULT_ML_THRESHOLD
 from .predictor import MLPredictor
+
+
+class MLPredictorLike(Protocol):
+    """Structural contract used by the hybrid classifier at inference time."""
+
+    def predict_with_confidence(
+        self,
+        procedure_text: str,
+        services: list[str] | None = None,
+        rule_category: str | None = None,
+        rule_warning_count: int = 0,
+    ) -> tuple[str, float]: ...
+
+    def predict_with_confidence_many(
+        self,
+        procedure_texts: list[str],
+        services_list: list[list[str]] | None = None,
+        rule_categories: list[str] | None = None,
+        rule_warning_counts: list[int] | None = None,
+    ) -> tuple[Sequence[str], list[float]]: ...
 
 
 class ClassificationResult(TypedDict):
@@ -48,7 +69,7 @@ class HybridClassifier:
 
     def __init__(
         self,
-        ml_predictor: MLPredictor | None,
+        ml_predictor: MLPredictorLike | None,
         ml_threshold: float = DEFAULT_ML_THRESHOLD,
     ):
         """Initialize hybrid classifier.
